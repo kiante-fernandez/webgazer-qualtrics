@@ -182,8 +182,10 @@
                 // Configure WebGazer
                 try {
                     webgazer.saveDataAcrossSessions(false);
-                    webgazer.setRegression('ridge');
-                    console.log("✓ Configured: ridge regression, no persistence");
+                    // NOTE: NOT calling setRegression() before begin() - let WebGazer use defaults
+                    // Official WebGazer example doesn't configure regression/tracker before begin()
+                    // See: https://github.com/brownhci/WebGazer/blob/master/www/index.html
+                    console.log("✓ Configured: no persistence, using default regression");
                 } catch (e) {
                     console.warn("Configuration warning:", e.message);
                 }
