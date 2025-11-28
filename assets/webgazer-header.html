@@ -1,8 +1,15 @@
 <!-- WebGazer Integration for Qualtrics -->
 <!-- Paste this into: Look & Feel -> General -> Header -->
 
-<!-- Load TensorFlow.js FIRST (Required for WebGazer 3.4.0 regression models) -->
+<!-- Load TensorFlow.js and Face Detection Dependencies (Required for WebGazer 3.4.0) -->
+<!-- 1. TensorFlow.js Core (required for regression models) -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.11.0/dist/tf.min.js"></script>
+
+<!-- 2. MediaPipe Face Mesh Model (required for face tracking) -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js" crossorigin="anonymous"></script>
+
+<!-- 3. TensorFlow Face Landmarks Detection (required for face tracking) -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection@1.0.2/dist/face-landmarks-detection.js"></script>
 
 <!-- Hard Reset: Ensure no conflicting WebGazer instance exists -->
 <script>
