@@ -8,7 +8,9 @@
         window.webgazerLoading = true;
 
         var script = document.createElement('script');
-        script.src = 'https://kiante-fernandez.github.io/webgazer-qualtrics/webgazer.js';
+        // TRY jsPsych's fork - tested and working with timing improvements
+        // jsPsych fork: https://github.com/jspsych/WebGazer
+        script.src = 'https://cdn.jsdelivr.net/gh/jspsych/jsPsych@7.0.0/examples/js/webgazer/webgazer.js';
         script.async = false;
 
         script.onload = function() {
