@@ -7,17 +7,24 @@ This toolkit allows you to integrate WebGazer.js eye tracking into any Qualtrics
 ## Prerequisites
 *   A Qualtrics account.
 *   Access to the `assets/` folder provided in this package.
+*   **A way to host the `dist/webgazer-patched.js` file** (e.g., GitHub Pages, Netlify, or your own server).
+    *   *Note: The standard WebGazer CDN version is blocked by Qualtrics CSP. You MUST use the patched version provided in `dist/`.*
 
 ## Step-by-Step Setup
 
-### 1. Add Header Code (Includes CSS & JS)
-1.  Open your survey in Qualtrics.
-2.  Go to **Look & Feel** -> **General** -> **Header**.
-3.  Click **Edit**.
-4.  Click the **Source** icon (`<>`) to switch to HTML mode.
-5.  Paste the **entire content** of `assets/webgazer-header.html`.
-6.  Click **Save**.
-    *   *Note: This file now includes all necessary CSS styles, so you do NOT need to host any external files.*
+### 1. Host the Patched WebGazer File
+1.  Upload `dist/webgazer-patched.js` to your hosting service.
+2.  Get the direct URL to the file (e.g., `https://your-site.com/webgazer-patched.js`).
+
+### 2. Add Header Code (Includes CSS & JS)
+1.  Open `assets/webgazer-header.html` in a text editor.
+2.  Replace `INSERT_YOUR_HOSTED_WEBGAZER_PATCHED_JS_URL_HERE` with your hosted URL from Step 1.
+3.  Open your survey in Qualtrics.
+4.  Go to **Look & Feel** -> **General** -> **Header**.
+5.  Click **Edit**.
+6.  Click the **Source** icon (`<>`) to switch to HTML mode.
+7.  Paste the **entire content** of `assets/webgazer-header.html`.
+8.  Click **Save**.
 
 ### 2. Setup Embedded Data
 1.  Go to **Survey Flow**.

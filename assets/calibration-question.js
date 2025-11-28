@@ -30,33 +30,19 @@ Qualtrics.SurveyEngine.addOnload(function () {
     instructions.innerHTML = "<h2 style='text-align:center; margin-top:20px; background:white; padding:10px;'>Initializing eye tracker... Please look at the camera.</h2>";
     container.appendChild(instructions);
 
-    // Wait for WebGazer tracker to be fully initialized
+    // Wait for WebGazer header to report ready (no prediction calls during init)
     function waitForTracker(callback) {
         console.log("Waiting for WebGazer tracker to initialize...");
 
         var attempts = 0;
-        var maxAttempts = 150; // 15 seconds max wait (increased from 10s)
+        var maxAttempts = 200; // 20 seconds
 
         var checkInterval = setInterval(function() {
             attempts++;
 
-            // Check if WebGazer is ready
-            var isGlobalReady = window.webgazerGlobal && window.webgazerGlobal.isReady;
+            var isGlobalReady = !!(window.webgazerGlobal && window.webgazerGlobal.isReady);
 
-            // Try to get a prediction
-            var hasPrediction = false;
-            try {
-                var pred = webgazer.getCurrentPrediction();
-                hasPrediction = (pred !== null && pred !== undefined &&
-                               typeof pred.x === 'number' && typeof pred.y === 'number');
-            } catch (e) {
-                // Not ready yet - log error for debugging
-                if (attempts % 10 === 0) {
-                    console.warn("Prediction check error (attempt " + attempts + "):", e.message);
-                }
-            }
-
-            if (isGlobalReady && hasPrediction) {
+            if (isGlobalReady) {
                 clearInterval(checkInterval);
                 console.log("✓ Tracker ready for calibration after " + (attempts * 100) + "ms");
                 callback();

@@ -8,12 +8,21 @@
         window.webgazerLoading = true;
 
         var script = document.createElement('script');
-        // TRY jsPsych's fork - tested and working with timing improvements
-        // jsPsych fork: https://github.com/jspsych/WebGazer
-        script.src = 'https://cdn.jsdelivr.net/gh/jspsych/jsPsych@7.0.0/examples/js/webgazer/webgazer.js';
+
+        // IMPORTANT: You must host the 'dist/webgazer-patched.js' file on a server (e.g. GitHub Pages, JSDelivr)
+        // and replace the URL below with your hosted URL.
+        // The default CDN version contains 'eval' which is blocked by Qualtrics.
+        // script.src = 'https://cdn.jsdelivr.net/gh/jspsych/jsPsych@7.0.0/examples/js/webgazer/webgazer.js'; // BLOCKED BY CSP
+
+        // Example: If you host it on GitHub Pages:
+        // script.src = 'https://your-username.github.io/your-repo/dist/webgazer-patched.js';
+
+        // For now, using a placeholder to remind you to update it:
+        script.src = 'INSERT_YOUR_HOSTED_WEBGAZER_PATCHED_JS_URL_HERE';
+
         script.async = false;
 
-        script.onload = function() {
+        script.onload = function () {
             console.log("✓ WebGazer library loaded");
             window.webgazerLibraryLoaded = true;
             window.webgazerLoading = false;
@@ -25,7 +34,7 @@
             }
         };
 
-        script.onerror = function(e) {
+        script.onerror = function (e) {
             console.error("✗ Failed to load WebGazer:", e);
             window.webgazerLibraryLoaded = false;
             window.webgazerLoading = false;
@@ -155,7 +164,7 @@
                     console.log("Waiting for WebGazer library...");
 
                     var waitAttempts = 0;
-                    var waitInterval = setInterval(function() {
+                    var waitInterval = setInterval(function () {
                         waitAttempts++;
 
                         if (typeof webgazer !== 'undefined') {
@@ -194,11 +203,11 @@
 
                 // Start WebGazer
                 webgazer.begin()
-                    .then(function() {
+                    .then(function () {
                         console.log("✓ WebGazer.begin() resolved");
 
                         // Wait for video stream
-                        waitForVideoStream(function(videoReady) {
+                        waitForVideoStream(function (videoReady) {
                             if (!videoReady) {
                                 alert("Camera stream failed. Please check permissions and try again.");
                                 if (btn) btn.innerText = "Retry Camera";
@@ -210,8 +219,8 @@
                             that.setupUI();
 
                             // Wait for tracker to warm up
-                            setTimeout(function() {
-                                checkTrackerReady(function(success) {
+                            setTimeout(function () {
+                                checkTrackerReady(function (success) {
                                     if (success) {
                                         var overlay = document.getElementById('webgazer-start-overlay');
                                         if (overlay) overlay.style.display = 'none';
@@ -227,7 +236,7 @@
                             }, 2000); // 2 second warmup
                         });
                     })
-                    .catch(function(err) {
+                    .catch(function (err) {
                         console.error("✗ WebGazer failed to start:", err);
 
                         var errorMsg = "Failed to start eye tracking.\n\n";
@@ -246,7 +255,7 @@
                     });
 
                 // Setup gaze listener
-                webgazer.setGazeListener(function(data, elapsedTime) {
+                webgazer.setGazeListener(function (data, elapsedTime) {
                     if (data == null) return;
                     if (window.webgazerGlobal.isRecording) {
                         window.webgazerGlobal.data.push({
@@ -263,7 +272,7 @@
                 var attempts = 0;
                 var maxAttempts = 150; // 15 seconds
 
-                var checkInterval = setInterval(function() {
+                var checkInterval = setInterval(function () {
                     attempts++;
 
                     var videoContainer = document.getElementById('webgazerVideoContainer');
@@ -300,7 +309,7 @@
                 var attempts = 0;
                 var maxAttempts = 150; // 15 seconds
 
-                var checkInterval = setInterval(function() {
+                var checkInterval = setInterval(function () {
                     attempts++;
 
                     try {
