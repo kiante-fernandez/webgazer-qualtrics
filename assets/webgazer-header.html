@@ -202,30 +202,41 @@
                     setTimeout(function() {
                         function checkTrackerReady(callback) {
                             var attempts = 0;
-                            var maxAttempts = 100; // 10 seconds
+                            var maxAttempts = 200; // 20 seconds (increased from 10)
 
                             var checkInterval = setInterval(function() {
                                 attempts++;
-                                var testPred = null;
-                                var hasPredict = false;
 
-                                try {
-                                    testPred = webgazer.getCurrentPrediction();
-                                    hasPredict = (testPred && typeof testPred.x === 'number');
-                                } catch (e) {
-                                    // Tracker not ready yet
+                                // CRITICAL: Check video element is ready FIRST
+                                var videoContainer = document.getElementById('webgazerVideoContainer');
+                                var video = videoContainer ? videoContainer.querySelector('video') : null;
+                                var videoReady = (video && video.videoWidth > 0 && video.videoHeight > 0);
+
+                                // Only try getCurrentPrediction() if video is ready
+                                var hasPredict = false;
+                                if (videoReady) {
+                                    try {
+                                        var testPred = webgazer.getCurrentPrediction();
+                                        hasPredict = (testPred && typeof testPred.x === 'number');
+                                    } catch (e) {
+                                        // Tracker not ready yet - this is expected, just wait
+                                        console.log("Waiting for tracker... (attempt " + attempts + ")");
+                                    }
+                                } else {
+                                    console.log("Waiting for video element... (attempt " + attempts + ")");
                                 }
 
-                                if (hasPredict) {
+                                if (videoReady && hasPredict) {
                                     clearInterval(checkInterval);
-                                    console.log("✓ Tracker methods verified and producing predictions");
+                                    console.log("✓ Video ready and tracker producing predictions after " + (attempts * 100) + "ms");
                                     callback(true);
                                     return;
                                 }
 
                                 if (attempts >= maxAttempts) {
                                     clearInterval(checkInterval);
-                                    console.error("✗ Tracker initialization timeout");
+                                    console.error("✗ Tracker initialization timeout after " + (maxAttempts * 100) + "ms");
+                                    console.error("Video ready: " + videoReady + ", Has predictions: " + hasPredict);
                                     callback(false);
                                 }
                             }, 100);
