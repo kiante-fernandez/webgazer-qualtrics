@@ -1,21 +1,36 @@
 <!-- WebGazer Integration for Qualtrics -->
 <!-- Paste this into: Look & Feel -> General -> Header -->
 
-<!-- Load Legacy WebGazer.js (Verified Working Build) -->
-<!-- This specific build from jsPsych is known to include clmtrackr and work without WebGL -->
+<!-- Load TensorFlow.js FIRST (Required for WebGazer 3.4.0 regression models) -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.11.0/dist/tf.min.js"></script>
+
+<!-- Hard Reset: Ensure no conflicting WebGazer instance exists -->
 <script>
-    // Hard Reset: Ensure no conflicting WebGazer instance exists
     if (window.webgazer) {
         try { window.webgazer.end(); } catch (e) { }
         window.webgazer = undefined;
     }
 </script>
+
+<!-- Load WebGazer 3.4.0 AFTER TensorFlow.js -->
 <script>
     // Dynamic script loading to work around Qualtrics header restrictions
     (function() {
-        var script = document.createElement('script');
-        script.src = 'https://kiante-fernandez.github.io/webgazer-qualtrics/webgazer.js';
-        script.async = false; // Load synchronously to maintain order
+        // Wait for TensorFlow.js to load first
+        function waitForTensorFlow(callback) {
+            if (typeof tf !== 'undefined') {
+                console.log("✓ TensorFlow.js loaded, version:", tf.version.tfjs);
+                callback();
+            } else {
+                setTimeout(function() { waitForTensorFlow(callback); }, 100);
+            }
+        }
+
+        waitForTensorFlow(function() {
+            // NOW load WebGazer
+            var script = document.createElement('script');
+            script.src = 'https://kiante-fernandez.github.io/webgazer-qualtrics/webgazer.js';
+            script.async = false; // Load synchronously to maintain order
 
         script.onload = function() {
             console.log("✓ WebGazer CDN script loaded successfully");
@@ -35,9 +50,10 @@
             alert("Failed to load eye tracking library from CDN. Please check your internet connection or contact support.");
         };
 
-        document.head.appendChild(script);
-        console.log("Attempting to load WebGazer from CDN...");
-    })();
+            document.head.appendChild(script);
+            console.log("Attempting to load WebGazer from CDN...");
+        }); // End waitForTensorFlow callback
+    })(); // End IIFE
 </script>
 
 <!-- INLINE CSS -->
