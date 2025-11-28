@@ -16,7 +16,8 @@
 
         // Using JSDelivr CDN to serve the patched WebGazer file from this GitHub repo
         // This version has the CSP-violating 'new Function' call removed
-        script.src = 'https://cdn.jsdelivr.net/gh/kiante-fernandez/webgazer-qualtrics@main/dist/webgazer-patched.js';
+        // Using commit hash instead of @main to ensure latest version is loaded
+        script.src = 'https://cdn.jsdelivr.net/gh/kiante-fernandez/webgazer-qualtrics@ba3f36a/dist/webgazer-patched.js';
 
         script.async = false;
 
