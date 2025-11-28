@@ -1,49 +1,21 @@
 <!-- WebGazer Integration for Qualtrics -->
 <!-- Paste this into: Look & Feel -> General -> Header -->
 
-<!-- Load TensorFlow.js and Face Detection Dependencies (Required for WebGazer 3.4.0) -->
-<!-- 1. TensorFlow.js Core (required for regression models) -->
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.11.0/dist/tf.min.js"></script>
-
-<!-- 2. MediaPipe Face Mesh Model (required for face tracking) -->
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js" crossorigin="anonymous"></script>
-
-<!-- 3. TensorFlow Face Landmarks Detection (required for face tracking) -->
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection@1.0.2/dist/face-landmarks-detection.js"></script>
-
-<!-- Hard Reset: Ensure no conflicting WebGazer instance exists -->
+<!-- Load WebGazer 3.4.0 (standalone - includes all dependencies) -->
 <script>
-    if (window.webgazer) {
-        try { window.webgazer.end(); } catch (e) { }
-        window.webgazer = undefined;
-    }
-</script>
+    // Prevent double loading
+    if (!window.webgazerLoading && !window.webgazerLibraryLoaded) {
+        window.webgazerLoading = true;
 
-<!-- Load WebGazer 3.4.0 AFTER TensorFlow.js -->
-<script>
-    // Dynamic script loading to work around Qualtrics header restrictions
-    (function() {
-        // Wait for TensorFlow.js to load first
-        function waitForTensorFlow(callback) {
-            if (typeof tf !== 'undefined') {
-                console.log("✓ TensorFlow.js loaded, version:", tf.version.tfjs);
-                callback();
-            } else {
-                setTimeout(function() { waitForTensorFlow(callback); }, 100);
-            }
-        }
-
-        waitForTensorFlow(function() {
-            // NOW load WebGazer
-            var script = document.createElement('script');
-            script.src = 'https://kiante-fernandez.github.io/webgazer-qualtrics/webgazer.js';
-            script.async = false; // Load synchronously to maintain order
+        var script = document.createElement('script');
+        script.src = 'https://kiante-fernandez.github.io/webgazer-qualtrics/webgazer.js';
+        script.async = false;
 
         script.onload = function() {
-            console.log("✓ WebGazer CDN script loaded successfully");
+            console.log("✓ WebGazer library loaded");
             window.webgazerLibraryLoaded = true;
+            window.webgazerLoading = false;
 
-            // Verify webgazer object exists
             if (typeof webgazer !== 'undefined') {
                 console.log("✓ webgazer object confirmed");
             } else {
@@ -52,15 +24,15 @@
         };
 
         script.onerror = function(e) {
-            console.error("✗ Failed to load WebGazer from CDN:", e);
+            console.error("✗ Failed to load WebGazer:", e);
             window.webgazerLibraryLoaded = false;
-            alert("Failed to load eye tracking library from CDN. Please check your internet connection or contact support.");
+            window.webgazerLoading = false;
+            alert("Failed to load eye tracking library. Please check your internet connection.");
         };
 
-            document.head.appendChild(script);
-            console.log("Attempting to load WebGazer from CDN...");
-        }); // End waitForTensorFlow callback
-    })(); // End IIFE
+        document.head.appendChild(script);
+        console.log("Loading WebGazer...");
+    }
 </script>
 
 <!-- INLINE CSS -->
@@ -158,198 +130,216 @@
 
     window.webgazerGlobal = {
         isReady: false,
+        isInitializing: false,
+        isRecording: false,
         data: [],
 
         startWebGazer: function () {
+            var that = this;
+
+            // Prevent double initialization
+            if (this.isInitializing || this.isReady) {
+                console.warn("⚠ WebGazer already initializing or ready");
+                return;
+            }
+
+            this.isInitializing = true;
             var btn = document.getElementById('webgazer-start-btn');
             if (btn) btn.innerText = "Initializing...";
 
-            // FIRST: Verify WebGazer library loaded
-            if (typeof webgazer === 'undefined') {
-                console.error("✗ WebGazer library not loaded!");
+            // Wait for library to load
+            function waitForLibrary() {
+                if (typeof webgazer === 'undefined') {
+                    console.log("Waiting for WebGazer library...");
 
-                // Try waiting a bit longer in case it's still loading
-                var that = this;
-                var waitAttempts = 0;
-                var waitInterval = setInterval(function() {
-                    waitAttempts++;
+                    var waitAttempts = 0;
+                    var waitInterval = setInterval(function() {
+                        waitAttempts++;
 
-                    if (typeof webgazer !== 'undefined') {
-                        clearInterval(waitInterval);
-                        console.log("✓ WebGazer library loaded after waiting");
-                        that.startWebGazer(); // Retry now that it's loaded
-                        return;
-                    }
-
-                    if (waitAttempts >= 20) { // 2 seconds
-                        clearInterval(waitInterval);
-                        alert("WebGazer library failed to load. Please refresh the page and try again.\n\nThis may be due to:\n- Network connectivity issues\n- CDN being blocked\n- Browser extensions blocking scripts");
-                        if (btn) btn.innerText = "Failed - Refresh Page";
-                        sessionStorage.removeItem('webgazer_auth');
-                    }
-                }, 100);
-
-                return; // Exit this attempt
-            }
-
-            // 1. Disable persistence (Legacy safe)
-            try { webgazer.saveDataAcrossSessions(false); } catch (e) { }
-
-            // 2. Configure regression (use default tracker - MediaPipe based)
-            // Note: Removed .setTracker('TFFacemesh') - requires TensorFlow.js v1.x deps
-            // Default tracker in WebGazer 3.4.0 is MediaPipe-based (no extra deps needed)
-            try {
-                webgazer.setRegression('ridge');
-                console.log("✓ Using default tracker with ridge regression");
-            } catch (e) {
-                console.error("Regression configuration failed:", e);
-            }
-
-            // 3. Start WebGazer
-            webgazer.begin()
-                .then(() => {
-                    console.log("✓ WebGazer.begin() resolved");
-
-                    // DON'T set isReady yet - need to verify tracker methods exist
-                    this.setupUI();
-
-                    // Wait for tracker to have its methods available
-                    var that = this;
-                    setTimeout(function() {
-                        function checkTrackerReady(callback) {
-                            var attempts = 0;
-                            var maxAttempts = 200; // 20 seconds (increased from 10)
-
-                            var checkInterval = setInterval(function() {
-                                attempts++;
-
-                                // CRITICAL: Check video element is ready FIRST
-                                var videoContainer = document.getElementById('webgazerVideoContainer');
-                                var video = videoContainer ? videoContainer.querySelector('video') : null;
-                                var videoReady = (video && video.videoWidth > 0 && video.videoHeight > 0);
-
-                                // Only try getCurrentPrediction() if video is ready
-                                var hasPredict = false;
-                                if (videoReady) {
-                                    try {
-                                        var testPred = webgazer.getCurrentPrediction();
-                                        hasPredict = (testPred && typeof testPred.x === 'number');
-                                    } catch (e) {
-                                        // Tracker not ready yet - this is expected, just wait
-                                        console.log("Waiting for tracker... (attempt " + attempts + ")");
-                                    }
-                                } else {
-                                    console.log("Waiting for video element... (attempt " + attempts + ")");
-                                }
-
-                                if (videoReady && hasPredict) {
-                                    clearInterval(checkInterval);
-                                    console.log("✓ Video ready and tracker producing predictions after " + (attempts * 100) + "ms");
-                                    callback(true);
-                                    return;
-                                }
-
-                                if (attempts >= maxAttempts) {
-                                    clearInterval(checkInterval);
-                                    console.error("✗ Tracker initialization timeout after " + (maxAttempts * 100) + "ms");
-                                    console.error("Video ready: " + videoReady + ", Has predictions: " + hasPredict);
-                                    callback(false);
-                                }
-                            }, 100);
+                        if (typeof webgazer !== 'undefined') {
+                            clearInterval(waitInterval);
+                            console.log("✓ WebGazer library ready");
+                            startInitialization();
+                            return;
                         }
 
-                        checkTrackerReady(function(success) {
-                            if (success) {
-                                document.getElementById('webgazer-start-overlay').style.display = 'none';
-                                sessionStorage.setItem('webgazer_auth', 'true');
-                                that.isReady = true;
-                                console.log("✓ WebGazer FULLY ready for use");
-                            } else {
-                                alert("Eye tracker failed to initialize properly. Please refresh and try again.");
-                                sessionStorage.removeItem('webgazer_auth');
-                            }
-                        });
-                    }, 1000); // Give video element time to initialize
-                })
-                .catch(err => {
-                    console.error("✗ WebGazer failed to start:", err);
-
-                    var errorMsg = "Failed to start eye tracking. ";
-
-                    if (err.message.includes('tracker') || err.message.includes('Tracker')) {
-                        errorMsg += "Eye tracker initialization failed. ";
-                    } else if (err.message.includes('camera') || err.message.includes('Camera') ||
-                               err.message.includes('getUserMedia') || err.message.includes('permission')) {
-                        errorMsg += "Cannot access camera. Please grant camera permissions. ";
-                    } else if (err.message.includes('secure') || err.message.includes('https')) {
-                        errorMsg += "Camera requires HTTPS or localhost. ";
-                    } else {
-                        errorMsg += "Unknown error. ";
-                    }
-
-                    errorMsg += "\n\nDetails: " + err.message;
-
-                    alert(errorMsg);
-
-                    if (btn) btn.innerText = "Retry Camera";
-                    sessionStorage.removeItem('webgazer_auth');
-                });
-
-            // 4. Setup Listener
-            webgazer.setGazeListener((data, elapsedTime) => {
-                if (data == null) return;
-                if (window.webgazerGlobal.isRecording) {
-                    window.webgazerGlobal.data.push({
-                        x: Math.round(data.x),
-                        y: Math.round(data.y),
-                        t: elapsedTime,
-                        p: window.location.href
-                    });
+                        if (waitAttempts >= 50) { // 5 seconds
+                            clearInterval(waitInterval);
+                            alert("WebGazer library failed to load. Please refresh the page.");
+                            if (btn) btn.innerText = "Failed - Refresh Page";
+                            that.isInitializing = false;
+                        }
+                    }, 100);
+                    return;
                 }
-            });
-        },
 
-        setupUI: function () {
-            // Don't call WebGazer UI methods until video element exists
-            function waitForVideoElement(callback) {
+                startInitialization();
+            }
+
+            function startInitialization() {
+                console.log("Starting WebGazer initialization...");
+
+                // Configure WebGazer
+                try {
+                    webgazer.saveDataAcrossSessions(false);
+                    webgazer.setRegression('ridge');
+                    console.log("✓ Configured: ridge regression, no persistence");
+                } catch (e) {
+                    console.warn("Configuration warning:", e.message);
+                }
+
+                // Start WebGazer
+                webgazer.begin()
+                    .then(function() {
+                        console.log("✓ WebGazer.begin() resolved");
+
+                        // Wait for video stream
+                        waitForVideoStream(function(videoReady) {
+                            if (!videoReady) {
+                                alert("Camera stream failed. Please check permissions and try again.");
+                                if (btn) btn.innerText = "Retry Camera";
+                                that.isInitializing = false;
+                                return;
+                            }
+
+                            // Setup UI
+                            that.setupUI();
+
+                            // Wait for tracker to warm up
+                            setTimeout(function() {
+                                checkTrackerReady(function(success) {
+                                    if (success) {
+                                        var overlay = document.getElementById('webgazer-start-overlay');
+                                        if (overlay) overlay.style.display = 'none';
+                                        sessionStorage.setItem('webgazer_auth', 'true');
+                                        that.isReady = true;
+                                        that.isInitializing = false;
+                                        console.log("✓ WebGazer FULLY ready for use");
+                                    } else {
+                                        alert("Tracker failed to initialize. Please refresh and try again.");
+                                        that.isInitializing = false;
+                                    }
+                                });
+                            }, 2000); // 2 second warmup
+                        });
+                    })
+                    .catch(function(err) {
+                        console.error("✗ WebGazer failed to start:", err);
+
+                        var errorMsg = "Failed to start eye tracking.\n\n";
+                        if (err.message.includes('camera') || err.message.includes('getUserMedia') ||
+                            err.message.includes('permission')) {
+                            errorMsg += "Cannot access camera. Please grant camera permissions.";
+                        } else if (err.message.includes('NotAllowedError')) {
+                            errorMsg += "Camera permission denied. Please allow camera access and refresh.";
+                        } else {
+                            errorMsg += "Error: " + err.message;
+                        }
+
+                        alert(errorMsg);
+                        if (btn) btn.innerText = "Retry Camera";
+                        that.isInitializing = false;
+                    });
+
+                // Setup gaze listener
+                webgazer.setGazeListener(function(data, elapsedTime) {
+                    if (data == null) return;
+                    if (window.webgazerGlobal.isRecording) {
+                        window.webgazerGlobal.data.push({
+                            x: Math.round(data.x),
+                            y: Math.round(data.y),
+                            t: elapsedTime,
+                            p: window.location.href
+                        });
+                    }
+                });
+            }
+
+            function waitForVideoStream(callback) {
                 var attempts = 0;
-                var maxAttempts = 50; // 5 seconds
+                var maxAttempts = 150; // 15 seconds
 
                 var checkInterval = setInterval(function() {
                     attempts++;
+
                     var videoContainer = document.getElementById('webgazerVideoContainer');
                     var video = videoContainer ? videoContainer.querySelector('video') : null;
 
-                    if (video && video.videoWidth > 0) {
+                    var hasStream = video && video.srcObject && video.srcObject.active;
+                    var hasValidDimensions = video && video.videoWidth > 0 && video.videoHeight > 0;
+                    var isPlaying = video && video.readyState >= 2;
+
+                    if (attempts === 1) {
+                        console.log("Waiting for video stream...");
+                    }
+
+                    if (attempts % 20 === 0) {
+                        console.log("Still waiting... (attempt " + attempts + ")");
+                    }
+
+                    if (hasStream && hasValidDimensions && isPlaying) {
                         clearInterval(checkInterval);
-                        console.log("✓ Video element ready");
-                        callback();
+                        console.log("✓ Video stream ready: " + video.videoWidth + "x" + video.videoHeight);
+                        callback(true);
                         return;
                     }
 
                     if (attempts >= maxAttempts) {
                         clearInterval(checkInterval);
-                        console.warn("⚠ Video element not found, proceeding anyway");
-                        callback();
+                        console.error("✗ Video stream timeout");
+                        callback(false);
                     }
                 }, 100);
             }
 
-            // First show video/overlays, then wait for element to exist
-            webgazer.showVideo(true);
-            webgazer.showFaceOverlay(true);
-            webgazer.showPredictionPoints(true);
+            function checkTrackerReady(callback) {
+                var attempts = 0;
+                var maxAttempts = 150; // 15 seconds
 
-            waitForVideoElement(function() {
-                // NOW it's safe to position the video
+                var checkInterval = setInterval(function() {
+                    attempts++;
+
+                    try {
+                        var testPred = webgazer.getCurrentPrediction();
+                        if (testPred && typeof testPred.x === 'number' && !isNaN(testPred.x)) {
+                            clearInterval(checkInterval);
+                            console.log("✓ Tracker producing valid predictions");
+                            callback(true);
+                            return;
+                        }
+                    } catch (e) {
+                        if (attempts % 20 === 0) {
+                            console.log("Warming up tracker... (attempt " + attempts + ")");
+                        }
+                    }
+
+                    if (attempts >= maxAttempts) {
+                        clearInterval(checkInterval);
+                        console.error("✗ Tracker timeout");
+                        callback(false);
+                    }
+                }, 100);
+            }
+
+            waitForLibrary();
+        },
+
+        setupUI: function () {
+            try {
+                webgazer.showVideo(true);
+                webgazer.showFaceOverlay(true);
+                webgazer.showPredictionPoints(true);
+
                 var v = document.getElementById('webgazerVideoContainer');
                 if (v) {
                     v.style.top = '10px';
                     v.style.left = '10px';
                     v.style.position = 'fixed';
-                    console.log("✓ Video element positioned");
+                    console.log("✓ Video UI configured");
                 }
-            });
+            } catch (e) {
+                console.error("UI setup error:", e);
+            }
         },
 
         startRecording: function () { this.isRecording = true; },
@@ -363,19 +353,18 @@
 
     // Auto-start if previously authorized
     if (sessionStorage.getItem('webgazer_auth') === 'true') {
-        console.log("Auto-starting WebGazer (Session Authorized)");
-        // Hide overlay immediately to prevent flicker, show minimal status if needed
-        var overlay = document.getElementById('webgazer-start-overlay');
-        if (overlay) {
-            overlay.innerHTML = "<h1>Resuming Eye Tracking...</h1>";
-        }
+        console.log("Auto-starting WebGazer (Previously Authorized)");
 
-        // Wait for webgazer library to load before auto-starting
         function tryAutoStart() {
             if (typeof webgazer !== 'undefined') {
-                window.webgazerGlobal.startWebGazer();
+                if (!window.webgazerGlobal.isReady && !window.webgazerGlobal.isInitializing) {
+                    var overlay = document.getElementById('webgazer-start-overlay');
+                    if (overlay) {
+                        overlay.innerHTML = "<h1>Resuming Eye Tracking...</h1>";
+                    }
+                    window.webgazerGlobal.startWebGazer();
+                }
             } else {
-                console.log("Waiting for WebGazer library to load for auto-start...");
                 setTimeout(tryAutoStart, 200);
             }
         }
