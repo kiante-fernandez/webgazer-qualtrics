@@ -1,0 +1,65 @@
+/* WebGazer Calibration and UI Styles */
+
+/* Calibration Points */
+.calibration-point {
+    width: 20px;
+    height: 20px;
+    -webkit-border-radius: 25px;
+    -moz-border-radius: 25px;
+    border-radius: 25px;
+    background-color: red;
+    opacity: 0.7;
+    position: fixed;
+    z-index: 9999;
+    cursor: pointer;
+    display: none; /* Hidden by default */
+    border: 2px solid white;
+    box-shadow: 0 0 5px rgba(0,0,0,0.5);
+    transition: background-color 0.3s, transform 0.2s;
+}
+
+.calibration-point:hover {
+    transform: scale(1.2);
+}
+
+.calibration-point.calibrated {
+    background-color: green;
+    opacity: 0.9;
+}
+
+/* Video Feed Positioning */
+#webgazerVideoContainer {
+    position: fixed !important;
+    top: 10px !important;
+    left: 10px !important;
+    z-index: 9998 !important;
+    border: 3px solid #333;
+    border-radius: 5px;
+    display: block; /* Can be toggled via JS */
+}
+
+/* Face Overlay Box */
+#webgazerFaceOverlay {
+    position: fixed !important;
+    top: 10px !important;
+    left: 10px !important;
+    z-index: 9999 !important;
+    border: 2px solid limegreen;
+    pointer-events: none;
+}
+
+/* Feedback Message */
+#webgazer-feedback {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 20px;
+    border-radius: 10px;
+    font-size: 1.2em;
+    z-index: 10000;
+    display: none;
+    text-align: center;
+}
