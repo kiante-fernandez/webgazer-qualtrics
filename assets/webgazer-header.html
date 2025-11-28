@@ -14,7 +14,9 @@
         // The default CDN version contains 'eval' which is blocked by Qualtrics.
         // script.src = 'https://cdn.jsdelivr.net/gh/jspsych/jsPsych@7.0.0/examples/js/webgazer/webgazer.js'; // BLOCKED BY CSP
 
-        script.src = 'https://github.com/kiante-fernandez/webgazer-qualtrics/blob/main/dist/webgazer-patched.js';
+        // Using JSDelivr CDN to serve the patched WebGazer file from this GitHub repo
+        // This version has the CSP-violating 'new Function' call removed
+        script.src = 'https://cdn.jsdelivr.net/gh/kiante-fernandez/webgazer-qualtrics@main/dist/webgazer-patched.js';
 
         script.async = false;
 
