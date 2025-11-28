@@ -1,0 +1,214 @@
+<!-- jsPsych Eye Tracking Experiment for Qualtrics -->
+<!-- Paste this into a Qualtrics "Text/Graphic" question, then click "HTML View" -->
+
+<!-- Load all jsPsych libraries -->
+<script src="https://unpkg.com/jspsych@8.2.2"></script>
+<script src="https://unpkg.com/@jspsych/plugin-preload@2.1.0"></script>
+<script src="https://unpkg.com/@jspsych/plugin-html-button-response@2.1.0"></script>
+<script src="https://unpkg.com/@jspsych/plugin-html-keyboard-response@2.1.0"></script>
+<script src="https://unpkg.com/@jspsych/plugin-image-keyboard-response@2.1.0"></script>
+<script src="https://unpkg.com/@jspsych/plugin-webgazer-init-camera@2.1.0"></script>
+<script src="https://unpkg.com/@jspsych/plugin-webgazer-calibrate@2.1.0"></script>
+<script src="https://unpkg.com/@jspsych/plugin-webgazer-validate@2.1.0"></script>
+<script src="https://cdn.jsdelivr.net/gh/jspsych/jsPsych@7.0.0/examples/js/webgazer/webgazer.js"></script>
+<script src="https://unpkg.com/@jspsych/extension-webgazer@1.2.0"></script>
+
+<!-- jsPsych CSS -->
+<link rel="stylesheet" href="https://unpkg.com/jspsych@8.2.2/css/jspsych.css" />
+
+<!-- Custom styling -->
+<style>
+  .jspsych-btn {
+    margin-bottom: 10px;
+  }
+  #jspsych-target {
+    width: 100%;
+    min-height: 600px;
+  }
+</style>
+
+<!-- Container for jsPsych -->
+<div id="jspsych-target"></div>
+
+<!-- jsPsych Experiment Script -->
+<script>
+  // Initialize jsPsych with WebGazer extension
+  var jsPsych = initJsPsych({
+    extensions: [
+      { type: jsPsychExtensionWebgazer }
+    ],
+    on_finish: function(data) {
+      // Save data to Qualtrics
+      var eyeTrackingData = jsPsych.data.get().filter({trial_type: 'webgazer-validate'});
+      var calibrationData = jsPsych.data.get().filter({trial_type: 'webgazer-calibrate'});
+
+      // Store in Qualtrics embedded data
+      if (typeof Qualtrics !== 'undefined') {
+        Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_data', JSON.stringify(eyeTrackingData.values()));
+        Qualtrics.SurveyEngine.setEmbeddedData('calibration_data', JSON.stringify(calibrationData.values()));
+      }
+
+      console.log('Eye tracking experiment complete!');
+      console.log('Data:', data.values());
+
+      // Auto-advance to next Qualtrics question
+      if (typeof Qualtrics !== 'undefined') {
+        setTimeout(function() {
+          document.querySelector('#NextButton').click();
+        }, 1000);
+      }
+    }
+  });
+
+  // Define experiment timeline
+  var timeline = [];
+
+  // 1. Welcome
+  var welcome = {
+    type: jsPsychHtmlButtonResponse,
+    stimulus: `
+      <h1>Eye Tracking Experiment</h1>
+      <p>This experiment will use your webcam to track your eye movements.</p>
+      <p>You will need to:</p>
+      <ol>
+        <li>Allow camera access</li>
+        <li>Position your face in the camera view</li>
+        <li>Complete a calibration procedure</li>
+        <li>Validate the calibration accuracy</li>
+      </ol>
+      <p><strong>Make sure you are in a well-lit environment and sitting at a comfortable distance from your screen.</strong></p>
+    `,
+    choices: ['Continue']
+  };
+  timeline.push(welcome);
+
+  // 2. Initialize camera
+  var camera_instructions = {
+    type: jsPsychHtmlButtonResponse,
+    stimulus: `
+      <p>You will now be asked to grant permission for the experiment to access your camera.</p>
+      <p>After granting permission, please center your face in the camera view box.</p>
+    `,
+    choices: ['Ready']
+  };
+  timeline.push(camera_instructions);
+
+  var init_camera = {
+    type: jsPsychWebgazerInitCamera
+  };
+  timeline.push(init_camera);
+
+  // 3. Calibration instructions
+  var calibration_instructions = {
+    type: jsPsychHtmlButtonResponse,
+    stimulus: `
+      <p>Now you will calibrate the eye tracking.</p>
+      <p>You will see a series of dots appear on the screen. Look at each dot and click on it.</p>
+      <p><strong>Keep your head still during calibration!</strong></p>
+    `,
+    choices: ['Start Calibration']
+  };
+  timeline.push(calibration_instructions);
+
+  // 4. Calibration
+  var calibration = {
+    type: jsPsychWebgazerCalibrate,
+    calibration_points: [
+      [25, 25], [75, 25], [50, 50], [25, 75], [75, 75]
+    ],
+    repetitions_per_point: 3,
+    randomize_calibration_order: true
+  };
+  timeline.push(calibration);
+
+  // 5. Validation instructions
+  var validation_instructions = {
+    type: jsPsychHtmlButtonResponse,
+    stimulus: `
+      <p>Now we will measure the accuracy of the calibration.</p>
+      <p>Look at each dot as it appears, but <strong>DO NOT click</strong> this time.</p>
+      <p>Just look at the dots with your eyes.</p>
+    `,
+    choices: ['Start Validation'],
+    post_trial_gap: 1000
+  };
+  timeline.push(validation_instructions);
+
+  // 6. Validation
+  var validation = {
+    type: jsPsychWebgazerValidate,
+    validation_points: [
+      [25, 25], [75, 25], [50, 50], [25, 75], [75, 75]
+    ],
+    roi_radius: 200,
+    time_to_saccade: 1000,
+    validation_duration: 2000,
+    show_validation_data: true
+  };
+  timeline.push(validation);
+
+  // 7. Recalibrate if needed
+  var recalibrate_instructions = {
+    type: jsPsychHtmlButtonResponse,
+    stimulus: `
+      <p>If the accuracy was not good enough, you can recalibrate.</p>
+      <p>Otherwise, you can continue with the experiment.</p>
+    `,
+    choices: ['Recalibrate', 'Continue']
+  };
+
+  var recalibrate_conditional = {
+    timeline: [recalibrate_instructions, calibration, validation],
+    conditional_function: function() {
+      // Get validation data
+      var validation_data = jsPsych.data.get().filter({trial_type: 'webgazer-validate'}).values()[0];
+
+      // If average distance > 150px, suggest recalibration
+      if (validation_data && validation_data.average_offset > 150) {
+        return true;
+      }
+      return false;
+    }
+  };
+  timeline.push(recalibrate_conditional);
+
+  // 8. Example trial with eye tracking
+  var example_trial = {
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: `
+      <div style="font-size: 48px; text-align: center; margin-top: 200px;">
+        <p>Look at this text and press SPACE</p>
+      </div>
+    `,
+    choices: [' '],
+    extensions: [
+      {
+        type: jsPsychExtensionWebgazer,
+        params: {targets: ['#jspsych-html-keyboard-response-stimulus']}
+      }
+    ]
+  };
+  timeline.push(example_trial);
+
+  // 9. Completion
+  var completion = {
+    type: jsPsychHtmlButtonResponse,
+    stimulus: `
+      <h2>Eye Tracking Setup Complete!</h2>
+      <p>The eye tracker has been calibrated and validated.</p>
+      <p>Click below to continue to the next question.</p>
+    `,
+    choices: ['Continue to Survey']
+  };
+  timeline.push(completion);
+
+  // Run the experiment
+  jsPsych.run(timeline);
+</script>
+
+<!-- Hide Qualtrics Next Button (jsPsych will auto-advance) -->
+<style>
+  #NextButton {
+    display: none !important;
+  }
+</style>
