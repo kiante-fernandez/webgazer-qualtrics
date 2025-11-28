@@ -172,21 +172,14 @@
             // 1. Disable persistence (Legacy safe)
             try { webgazer.saveDataAcrossSessions(false); } catch (e) { }
 
-            // 2. Configure tracker with fallback logic
+            // 2. Configure regression (use default tracker - MediaPipe based)
+            // Note: Removed .setTracker('TFFacemesh') - requires TensorFlow.js v1.x deps
+            // Default tracker in WebGazer 3.4.0 is MediaPipe-based (no extra deps needed)
             try {
-                // Try to set TFFacemesh explicitly
-                webgazer.setRegression('ridge')
-                    .setTracker('TFFacemesh');
-                console.log("✓ Tracker configured: TFFacemesh with ridge regression");
+                webgazer.setRegression('ridge');
+                console.log("✓ Using default tracker with ridge regression");
             } catch (e) {
-                console.warn("Could not set tracker explicitly:", e);
-                // Fallback: Let WebGazer auto-select tracker
-                try {
-                    webgazer.setRegression('ridge');
-                    console.log("✓ Using default tracker with ridge regression");
-                } catch (e2) {
-                    console.error("Tracker configuration failed:", e2);
-                }
+                console.error("Regression configuration failed:", e);
             }
 
             // 3. Start WebGazer

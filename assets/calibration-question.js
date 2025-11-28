@@ -35,7 +35,7 @@ Qualtrics.SurveyEngine.addOnload(function () {
         console.log("Waiting for WebGazer tracker to initialize...");
 
         var attempts = 0;
-        var maxAttempts = 100; // 10 seconds max wait
+        var maxAttempts = 150; // 15 seconds max wait (increased from 10s)
 
         var checkInterval = setInterval(function() {
             attempts++;
@@ -50,7 +50,10 @@ Qualtrics.SurveyEngine.addOnload(function () {
                 hasPrediction = (pred !== null && pred !== undefined &&
                                typeof pred.x === 'number' && typeof pred.y === 'number');
             } catch (e) {
-                // Not ready yet
+                // Not ready yet - log error for debugging
+                if (attempts % 10 === 0) {
+                    console.warn("Prediction check error (attempt " + attempts + "):", e.message);
+                }
             }
 
             if (isGlobalReady && hasPrediction) {
@@ -62,7 +65,7 @@ Qualtrics.SurveyEngine.addOnload(function () {
 
             if (attempts >= maxAttempts) {
                 clearInterval(checkInterval);
-                console.warn("⚠ Tracker initialization timeout, proceeding anyway");
+                console.warn("⚠ Tracker initialization timeout after " + (maxAttempts * 100) + "ms, proceeding anyway");
                 callback();
             }
         }, 100);
@@ -91,11 +94,15 @@ Qualtrics.SurveyEngine.addOnload(function () {
             console.log("Calibration point clicked:", index);
 
             // Explicitly record calibration data for WebGazer
-            // This is crucial for legacy versions to learn the mapping
-            if (typeof webgazer !== 'undefined' && webgazer.recordScreenPosition) {
-                webgazer.recordScreenPosition(event.clientX, event.clientY, 'click');
-            } else {
-                console.warn("WebGazer not ready for calibration step");
+            // This is crucial for the tracker to learn the eye-to-screen mapping
+            try {
+                if (typeof webgazer !== 'undefined' && webgazer.recordScreenPosition) {
+                    webgazer.recordScreenPosition(event.clientX, event.clientY, 'click');
+                } else {
+                    console.warn("WebGazer not ready for calibration step");
+                }
+            } catch (e) {
+                console.error("Error recording calibration data:", e.message);
             }
 
             var clicks = parseInt(p.getAttribute('data-clicks') || '0');
