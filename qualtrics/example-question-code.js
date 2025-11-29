@@ -139,6 +139,8 @@ Qualtrics.SurveyEngine.addOnload(function() {
 
   // Store listener reference for cleanup
   this.gazeListener = gazeListener;
+  this.gazeData = gazeData;
+  this.trackingStartTime = trackingStartTime;
 });
 
 Qualtrics.SurveyEngine.addOnPageSubmit(function() {
@@ -163,8 +165,7 @@ Qualtrics.SurveyEngine.addOnPageSubmit(function() {
   }
 
   // Save gaze data to embedded data (compressed format)
-  // Access gazeData from closure
-  const gazeDataArray = gazeData || [];
+  const gazeDataArray = this.gazeData || [];
   const compressed = gazeDataArray.map(d => `${d.t},${d.x},${d.y}`).join('|');
   Qualtrics.SurveyEngine.setEmbeddedData('gaze_' + questionId, compressed);
 });
@@ -313,6 +314,8 @@ Qualtrics.SurveyEngine.addOnload(function() {
   };
   window.addEventListener('message', gazeListener);
   this.gazeListener = gazeListener;
+  this.gazeData = gazeData;
+  this.trackingStartTime = trackingStartTime;
 });
 
 Qualtrics.SurveyEngine.addOnPageSubmit(function() {
@@ -335,7 +338,7 @@ Qualtrics.SurveyEngine.addOnPageSubmit(function() {
   }
 
   // Save gaze data
-  const gazeDataArray = gazeData || [];
+  const gazeDataArray = this.gazeData || [];
   const compressed = gazeDataArray.map(d => `${d.t},${d.x},${d.y}`).join('|');
   Qualtrics.SurveyEngine.setEmbeddedData('gaze_' + questionId, compressed);
 });
