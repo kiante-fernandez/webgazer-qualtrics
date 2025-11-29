@@ -360,9 +360,9 @@
 
         trackingMode = true;
 
-        // Ensure WebGazer is actively predicting
-        webgazer.resume();
-        console.log('[Calibration] WebGazer resumed, ready to track');
+        // DON'T call resume() - it interferes with fresh begin()
+        // When webgazer.begin() is called, tracking is already active
+        console.log('[Calibration] WebGazer ready to track');
 
         // Wait a moment for WebGazer to fully initialize before notifying parent
         setTimeout(function() {
