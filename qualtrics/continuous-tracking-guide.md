@@ -1,360 +1,428 @@
-# Continuous Eye Tracking Integration Guide
+# Continuous Eye Tracking for Qualtrics
 
-This guide shows you how to add continuous eye tracking throughout your entire Qualtrics survey, tracking where participants look on each survey question.
+Track where participants look throughout your **entire survey** - on every question, from start to finish.
 
-## Overview
+## What You Get
 
-This continuous tracking system:
-- Calibrates eye tracking once at the start (Question 1)
-- Uses a **single persistent iframe** for both calibration and tracking
-- Tracks gaze coordinates on every subsequent survey question
-- Offers optional recalibration every 10 questions
-- Collects raw gaze streams (x, y coordinates at 15 Hz)
-- Saves data to Qualtrics embedded data fields
-- Supports arbitrarily large surveys (50+ questions)
+- **One-time calibration** - Calibrate once at the start
+- **Continuous tracking** - Collect gaze data on every survey question
+- **Raw coordinates** - Get x, y gaze positions at 15 samples/second
+- **Large surveys** - Supports 50+ questions
+- **Optional recalibration** - Maintain accuracy in long surveys
 
 ## How It Works
 
-1. **Question 1**: Participant completes eye tracking calibration. The same iframe automatically switches to tracking mode and becomes hidden.
+```
+Question 1 (Calibration)
+    ↓
+Participant calibrates → Iframe switches to tracking mode → Becomes hidden
+    ↓
+Questions 2-N (Your Survey)
+    ↓
+Each question activates tracking → Gaze streams at 15 Hz → Data saved on advance
+    ↓
+Questions 10, 20, 30... (Optional Recalibration)
+    ↓
+Show iframe → Recalibrate → Hide iframe → Resume tracking
+```
 
-2. **Questions 2+**: Each question sends commands to the persistent iframe, which streams gaze data using the calibrated WebGazer model.
+**Key Feature**: ONE iframe persists throughout the entire survey, maintaining calibration data across all questions.
 
-3. **Questions 10, 20, 30, etc.**: The hidden iframe can be shown again for optional recalibration, then hidden to resume tracking.
+---
 
-4. **Data Export**: All gaze data exports with your Qualtrics responses.
+## Setup Guide
 
-## Architecture
-
-**Single Iframe System**: ONE iframe handles both calibration and continuous tracking throughout the entire survey. After calibration completes, the iframe:
-- Automatically switches to tracking mode
-- Becomes hidden but stays loaded
-- Maintains the calibrated WebGazer instance
-- Persists across all questions
-
-This ensures calibration data is never lost during page transitions.
-
-## Quick Start (4 Steps)
+Follow these 4 steps to add continuous eye tracking to your Qualtrics survey.
 
 ### Step 1: Set Up Embedded Data Fields
 
-1. Go to **Survey Flow** in Qualtrics
+**In Qualtrics:**
+1. Go to **Survey Flow**
 2. Click **"Add a New Element Here"** at the very top
 3. Select **"Embedded Data"**
-4. Add these fields (leave values blank):
+4. Add these field names (copy the list below):
 
-**Calibration data:**
-- `eyetracking_offset`
-- `eyetracking_recalibrated`
-- `eyetracking_attempts`
-- `eyetracking_validation`
-- `eyetracking_model_key`
+```
+eyetracking_offset
+eyetracking_recalibrated
+eyetracking_attempts
+eyetracking_validation
+eyetracking_model_key
+gaze_Q2
+gaze_Q3
+gaze_Q4
+gaze_Q5
+gaze_Q6
+gaze_Q7
+gaze_Q8
+gaze_Q9
+recalibrated_at_Q10
+gaze_Q11
+gaze_Q12
+```
 
-**Gaze data (add one field per tracked question):**
-- `gaze_Q2`
-- `gaze_Q3`
-- `gaze_Q4`
-- ... (one for each question you want to track)
-
-**Recalibration markers (optional):**
-- `recalibrated_at_Q10`
-- `recalibrated_at_Q20`
-- ... (one for each recalibration point)
+> **Note**: Add one `gaze_Q#` field for each question you want to track. Add more as needed for your survey length.
 
 5. **Move this element to the TOP** of your Survey Flow
 6. Click **"Save Flow"**
 
 ### Step 2: Create Question 1 (Calibration)
 
+**In Qualtrics:**
 1. Add a new **"Text/Graphic"** question as your first survey question
 2. Click the **HTML view** button (`<>`)
-3. Copy the **"Question 1"** template from [example-question-code.js](example-question-code.js)
-4. Paste into the HTML editor
-5. Save the question
+3. **Copy and paste this code**:
 
-This question will:
-- Show calibration interface to participant
-- Initialize the hidden tracking iframe
-- Auto-advance when calibration completes
+```html
+<div style="width: 100%; height: 800px;">
+  <!-- Single persistent iframe for both calibration and tracking -->
+  <iframe id="calibration-iframe"
+    src="https://kiante-fernandez.github.io/webgazer-qualtrics/experiments/calibration.html"
+    width="100%" height="800px"
+    allow="camera; microphone"
+    style="border: none;">
+  </iframe>
+</div>
+
+<script>
+  window.addEventListener('message', function(event) {
+    if (event.data.type === 'calibration-complete') {
+      // Save calibration data to embedded data
+      Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_offset', event.data.average_offset);
+      Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_recalibrated', event.data.recalibrated);
+      Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_attempts', event.data.calibration_attempts);
+      Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_validation', JSON.stringify(event.data.validation_data));
+      Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_model_key', event.data.model_key);
+
+      // Hide the calibration iframe (it switches to tracking mode automatically)
+      const calibrationIframe = document.getElementById('calibration-iframe');
+      if (calibrationIframe) {
+        // Make iframe hidden but keep it loaded
+        calibrationIframe.style.position = 'fixed';
+        calibrationIframe.style.bottom = '0';
+        calibrationIframe.style.left = '0';
+        calibrationIframe.style.width = '1px';
+        calibrationIframe.style.height = '1px';
+        calibrationIframe.style.border = 'none';
+        calibrationIframe.style.visibility = 'hidden';
+        calibrationIframe.style.pointerEvents = 'none';
+        calibrationIframe.style.zIndex = '-1';
+
+        // Move iframe to document.body to persist across questions
+        document.body.appendChild(calibrationIframe);
+      }
+
+      // Auto-advance to next question after 1.5 seconds
+      setTimeout(function() {
+        document.querySelector('#NextButton').click();
+      }, 1500);
+    }
+  });
+</script>
+
+<style>
+  #NextButton { display: none !important; }
+</style>
+```
+
+4. Save the question
+
+**What this does:**
+- Shows calibration interface to participant
+- After calibration, iframe becomes hidden and persists
+- Auto-advances to Question 2
 
 ### Step 3: Add Tracking to Questions 2+
 
-For each regular survey question where you want eye tracking:
+**For each survey question you want to track** (Q2, Q3, Q4, Q5, etc.):
 
-1. Create your question normally in Qualtrics
+**In Qualtrics:**
+1. Create your survey question normally (Multiple Choice, Text Entry, etc.)
 2. Click the gear icon → **"Add JavaScript"**
-3. Copy the **"Questions 2+"** template from [example-question-code.js](example-question-code.js)
-4. Paste into the JavaScript editor
-5. **Change `questionId` to match your question** (e.g., 'Q2', 'Q3', 'Q4')
-6. Save
+3. **Copy and paste this code**:
 
-Repeat for all questions you want to track (Q2, Q3, Q4, Q5, Q6, Q7, Q8, Q9, Q11, Q12, etc.)
+```javascript
+Qualtrics.SurveyEngine.addOnload(function() {
+  // ⚠️ IMPORTANT: Change this to match your question number (Q2, Q3, Q4, etc.)
+  const questionId = 'Q2';  // ← UPDATE THIS FOR EACH QUESTION
+
+  let gazeData = [];
+  let trackingStartTime = performance.now();
+
+  // Find the persistent calibration iframe (now in tracking mode)
+  const trackingIframe = document.getElementById('calibration-iframe');
+
+  if (trackingIframe) {
+    // Start tracking for this question
+    trackingIframe.contentWindow.postMessage({
+      type: 'start-tracking',
+      questionId: questionId,
+      questionStartTime: trackingStartTime
+    }, '*');
+
+    // Send viewport updates for coordinate transformation (handles scrolling)
+    const viewportInterval = setInterval(function() {
+      trackingIframe.contentWindow.postMessage({
+        type: 'viewport-update',
+        scrollX: window.scrollX,
+        scrollY: window.scrollY
+      }, '*');
+    }, 100);
+
+    this.viewportInterval = viewportInterval;
+  }
+
+  // Listen for gaze data from tracking iframe
+  const gazeListener = function(event) {
+    if (event.data.type === 'gaze-data') {
+      gazeData.push({
+        t: Math.round(event.data.timestamp - trackingStartTime),
+        x: Math.round(event.data.x),
+        y: Math.round(event.data.y)
+      });
+    }
+  };
+  window.addEventListener('message', gazeListener);
+  this.gazeListener = gazeListener;
+});
+
+Qualtrics.SurveyEngine.addOnPageSubmit(function() {
+  const questionId = 'Q2';  // ← UPDATE THIS TO MATCH ABOVE
+
+  const trackingIframe = document.getElementById('calibration-iframe');
+
+  // Pause tracking during page transition
+  if (trackingIframe) {
+    trackingIframe.contentWindow.postMessage({ type: 'pause-tracking' }, '*');
+  }
+
+  // Clean up
+  if (this.viewportInterval) {
+    clearInterval(this.viewportInterval);
+  }
+  if (this.gazeListener) {
+    window.removeEventListener('message', this.gazeListener);
+  }
+
+  // Save gaze data to embedded data (compressed format)
+  const gazeDataArray = gazeData || [];
+  const compressed = gazeDataArray.map(d => `${d.t},${d.x},${d.y}`).join('|');
+  Qualtrics.SurveyEngine.setEmbeddedData('gaze_' + questionId, compressed);
+});
+```
+
+4. **Update the `questionId` variable** in TWO places:
+   - Line 2: `const questionId = 'Q2';` → Change to your question number
+   - Line 48: `const questionId = 'Q2';` → Change to match
+5. Save the question
+
+**Repeat for all tracked questions**: Q2, Q3, Q4, Q5, Q6, Q7, Q8, Q9, Q11, Q12, etc. (skip Q10 for now)
 
 ### Step 4: Add Recalibration Questions (Optional but Recommended)
 
-For questions 10, 20, 30, 40, etc.:
+**For Question 10** (and Q20, Q30, Q40 if your survey is long):
 
+**In Qualtrics:**
 1. Create a new **"Text/Graphic"** question at position Q10
-2. Click **HTML view** and paste the **"Recalibration"** HTML template
-3. Click **"Add JavaScript"** and paste the **"Recalibration"** JavaScript template
-4. Update question numbers in both HTML and JavaScript
-5. Save
+2. Click **HTML view** button
+3. **Copy and paste this HTML**:
 
-Repeat for Q20, Q30, Q40, etc. if your survey is long.
+```html
+<div id="recalibration-container">
+  <div id="recalibration-prompt" style="text-align: center; padding: 50px;">
+    <h2>Optional: Recalibrate Eye Tracking</h2>
+    <p>We've reached the midpoint of the survey. Would you like to recalibrate for better accuracy?</p>
+    <button onclick="showRecalibration()" style="padding: 15px 30px; font-size: 16px; margin: 10px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer;">Recalibrate</button>
+    <button onclick="skipRecalibration()" style="padding: 15px 30px; font-size: 16px; margin: 10px; background: #95a5a6; color: white; border: none; border-radius: 4px; cursor: pointer;">Skip</button>
+  </div>
+</div>
 
-## Detailed Setup Instructions
+<script>
+  function showRecalibration() {
+    document.getElementById('recalibration-prompt').style.display = 'none';
+    document.querySelector('#NextButton').style.display = 'none';
+    const calibrationIframe = document.getElementById('calibration-iframe');
+    if (calibrationIframe) {
+      calibrationIframe.style.position = 'relative';
+      calibrationIframe.style.width = '100%';
+      calibrationIframe.style.height = '800px';
+      calibrationIframe.style.visibility = 'visible';
+      calibrationIframe.style.pointerEvents = 'auto';
+      calibrationIframe.style.zIndex = 'auto';
+      calibrationIframe.style.border = '2px solid #3498db';
+      document.getElementById('recalibration-container').appendChild(calibrationIframe);
+      calibrationIframe.contentWindow.postMessage({ type: 'recalibrate' }, '*');
+    }
+  }
 
-### Question 1: Calibration Setup
+  function skipRecalibration() {
+    document.querySelector('#NextButton').click();
+  }
 
-**What participants see:**
-1. Welcome screen explaining eye tracking
-2. Camera permission request
-3. Calibration: Click on 5 dots while looking at them (2 repetitions each)
-4. Validation: Look at 5 dots without clicking
-5. Optional recalibration offer if accuracy is low (>200px offset)
-6. Auto-advance to Question 2
+  window.addEventListener('message', function(event) {
+    if (event.data.type === 'calibration-complete') {
+      const calibrationIframe = document.getElementById('calibration-iframe');
+      if (calibrationIframe) {
+        calibrationIframe.style.position = 'fixed';
+        calibrationIframe.style.bottom = '0';
+        calibrationIframe.style.left = '0';
+        calibrationIframe.style.width = '1px';
+        calibrationIframe.style.height = '1px';
+        calibrationIframe.style.border = 'none';
+        calibrationIframe.style.visibility = 'hidden';
+        calibrationIframe.style.pointerEvents = 'none';
+        calibrationIframe.style.zIndex = '-1';
+        document.body.appendChild(calibrationIframe);
+        calibrationIframe.contentWindow.postMessage({ type: 'resume-tracking' }, '*');
+      }
+      Qualtrics.SurveyEngine.setEmbeddedData('recalibrated_at_Q10', true);
+      setTimeout(function() { document.querySelector('#NextButton').click(); }, 1500);
+    }
+  });
+</script>
 
-**Behind the scenes:**
-- Single iframe shows calibration UI
-- User completes calibration
-- Same iframe automatically switches to "tracking mode"
-- Iframe becomes hidden and moves to document.body
-- Same WebGazer instance (with calibration) persists throughout survey
-
-**Code Template:** See `example-question-code.js` → "QUESTION 1: CALIBRATION + TRACKER INITIALIZATION"
-
-### Questions 2+: Standard Tracking
-
-**What participants see:**
-- Your normal survey question (no indication of eye tracking)
-
-**Behind the scenes:**
-- JavaScript finds the persistent iframe (now in document.body)
-- Sends "start-tracking" command to iframe
-- Iframe streams gaze coordinates using the calibrated WebGazer (15 times per second)
-- JavaScript buffers all gaze data for this question
-- On page advance, data saves to embedded data field `gaze_Q#`
-- Tracking pauses during page transition
-
-**Code Template:** See `example-question-code.js` → "QUESTIONS 2+: STANDARD TRACKING QUESTIONS"
-
-**Important:**
-- Change `questionId` variable to match your question number
-- Must update in BOTH `addOnload` and `addOnPageSubmit` functions
-
-### Recalibration Questions (Q10, Q20, Q30, etc.)
-
-**What participants see:**
-1. Prompt: "Optional: Recalibrate Eye Tracking"
-2. Two buttons: "Recalibrate" or "Skip"
-3. If recalibrate: Full calibration interface appears
-4. If skip: Immediately advances to next question
-
-**Behind the scenes:**
-- Continues tracking gaze during prompt
-- If recalibrate: Hidden iframe is shown again, runs calibration, then hidden again
-- Same iframe updates its WebGazer model in-place
-- Tracking resumes automatically with updated calibration
-- Saves recalibration event to embedded data
-- All gaze data (including during prompt) saved to `gaze_Q10`
-
-**Code Template:** See `example-question-code.js` → "RECALIBRATION QUESTIONS"
-
-**Important:**
-- Add recalibration questions every 10 questions (configurable)
-- Helps maintain accuracy throughout long surveys
-- Participant can always skip if they don't want to recalibrate
-
-## Data Output
-
-### Gaze Data Format
-
-Each tracked question saves data to its own embedded data field in compressed format:
-
-```
-Format: "t1,x1,y1|t2,x2,y2|t3,x3,y3|..."
+<style>
+  #NextButton { display: inline-block !important; }
+</style>
 ```
 
-**Where:**
-- `t` = Timestamp in milliseconds (relative to question start)
-- `x` = Gaze x-coordinate in pixels (relative to viewport)
-- `y` = Gaze y-coordinate in pixels (relative to viewport)
-
-**Example:**
-```
-gaze_Q2 = "0,512,384|67,515,386|134,518,390|201,520,392|268,525,395|..."
-```
-
-This means:
-- At time 0ms: looking at (512, 384)
-- At time 67ms: looking at (515, 386)
-- At time 134ms: looking at (518, 390)
-- etc.
-
-### Data Size
-
-At 15 Hz sampling rate:
-- ~15 samples per second
-- ~1.1 KB per 5-second question
-- 50 questions = ~55 KB total (well within Qualtrics limits)
-
-## Configuration Options
-
-### Sampling Rate
-
-Default: **15 Hz** (15 samples per second)
-
-To change, modify the `samplingRate` parameter in Question 1:
+4. Click the gear icon → **"Add JavaScript"**
+5. **Copy and paste this JavaScript**:
 
 ```javascript
-trackingIframe.contentWindow.postMessage({
-  type: 'init-tracking',
-  modelKey: event.data.model_key,
-  samplingRate: 15  // Change this value
-}, '*');
+Qualtrics.SurveyEngine.addOnload(function() {
+  const questionId = 'Q10';  // ⚠️ UPDATE FOR EACH RECALIBRATION QUESTION
+
+  let gazeData = [];
+  let trackingStartTime = performance.now();
+  const trackingIframe = document.getElementById('calibration-iframe');
+
+  if (trackingIframe) {
+    trackingIframe.contentWindow.postMessage({
+      type: 'start-tracking',
+      questionId: questionId,
+      questionStartTime: trackingStartTime
+    }, '*');
+
+    const viewportInterval = setInterval(function() {
+      trackingIframe.contentWindow.postMessage({
+        type: 'viewport-update',
+        scrollX: window.scrollX,
+        scrollY: window.scrollY
+      }, '*');
+    }, 100);
+    this.viewportInterval = viewportInterval;
+  }
+
+  const gazeListener = function(event) {
+    if (event.data.type === 'gaze-data') {
+      gazeData.push({
+        t: Math.round(event.data.timestamp - trackingStartTime),
+        x: Math.round(event.data.x),
+        y: Math.round(event.data.y)
+      });
+    }
+  };
+  window.addEventListener('message', gazeListener);
+  this.gazeListener = gazeListener;
+});
+
+Qualtrics.SurveyEngine.addOnPageSubmit(function() {
+  const questionId = 'Q10';  // ⚠️ UPDATE THIS TO MATCH ABOVE
+
+  const trackingIframe = document.getElementById('calibration-iframe');
+  if (trackingIframe) {
+    trackingIframe.contentWindow.postMessage({ type: 'pause-tracking' }, '*');
+  }
+
+  if (this.viewportInterval) {
+    clearInterval(this.viewportInterval);
+  }
+  if (this.gazeListener) {
+    window.removeEventListener('message', this.gazeListener);
+  }
+
+  const gazeDataArray = gazeData || [];
+  const compressed = gazeDataArray.map(d => `${d.t},${d.x},${d.y}`).join('|');
+  Qualtrics.SurveyEngine.setEmbeddedData('gaze_' + questionId, compressed);
+});
 ```
 
-**Options:**
-- **15 Hz**: Lightweight, supports 100+ question surveys
-- **30 Hz**: Higher fidelity, supports 50+ question surveys
-- **60 Hz**: Maximum fidelity, supports ~25 question surveys
+6. **Update question IDs** in THREE places:
+   - HTML: `'recalibrated_at_Q10'` (line 48)
+   - JavaScript: `const questionId = 'Q10';` (line 2)
+   - JavaScript: `const questionId = 'Q10';` (line 37)
+7. Save the question
 
-### Recalibration Frequency
+**Repeat for Q20, Q30, Q40** if your survey has 20+ questions.
 
-Default: Every **10 questions** (Q10, Q20, Q30, etc.)
+---
 
-To change frequency:
-- Add recalibration questions at different intervals (e.g., every 5 questions: Q5, Q10, Q15, Q20, etc.)
-- Or skip recalibration entirely (just use standard tracking template for all questions)
+## You're Done!
 
-### Tracked Questions
+Your continuous eye tracking is now set up. When participants take your survey:
+1. Q1: They'll complete calibration
+2. Q2+: Gaze data streams automatically on every question
+3. Data exports with your Qualtrics responses
 
-You don't have to track every question. Only add the tracking JavaScript to questions you want to track.
+---
 
-For example:
-- Q1: Calibration
-- Q2-Q5: Regular questions (no tracking)
-- Q6-Q10: Tracked questions (add tracking JavaScript)
-- Q11-Q15: Regular questions (no tracking)
-- Q16-Q20: Tracked questions (add tracking JavaScript)
+## Reference
 
-## Troubleshooting
+### Data Format
 
-### Problem: Camera Permission Denied
+Gaze data is saved in compressed format: `"t1,x1,y1|t2,x2,y2|..."`
 
-**Symptoms:** Calibration doesn't start, or shows permission error
+Where:
+- `t` = Timestamp in ms (relative to question start)
+- `x`, `y` = Gaze coordinates in pixels (relative to viewport)
 
-**Solutions:**
-- Ensure survey is accessed via **HTTPS** (required for camera access)
-- Ask participants to check browser permissions and allow camera
-- Test in different browsers (Chrome/Edge work best)
+**Example:** `gaze_Q2 = "0,512,384|67,515,386|134,518,390|..."`
 
-### Problem: Tracking Iframe Not Found
+**Data Size:** At 15 Hz, expect ~1 KB per 5-second question. A 50-question survey = ~55 KB (well within Qualtrics limits).
 
-**Symptoms:** JavaScript error: "Cannot read property 'contentWindow' of null"
+### Configuration
 
-**Solutions:**
-- Verify Question 1 (calibration) was completed
-- Check that participant didn't skip Question 1
-- Ensure iframe was successfully moved to document.body after calibration
-- Look for `calibration-iframe` element in document.body (use browser dev tools)
+**Sampling Rate:** Default is 15 Hz. To increase fidelity, edit [calibration.html:251](../experiments/calibration.html#L251) and change `samplingRate = 15` to 30 or 60 Hz. Higher rates generate more data.
 
-### Problem: No Gaze Data Collected
+**Recalibration Frequency:** Default is every 10 questions. Add recalibration questions at any interval (Q5, Q15, Q25) or skip entirely.
 
-**Symptoms:** Embedded data fields are empty for `gaze_Q#`
+**Selective Tracking:** Only add tracking JavaScript to questions you want to track. Skip questions don't need tracking code.
 
-**Solutions:**
-- Verify participant granted camera permission on Q1
-- Check browser console for JavaScript errors
-- Look for `[Calibration] WebGazer is producing predictions:` in console (should show coordinates)
-- Ensure embedded data fields are set up in Survey Flow **before** Question 1
-- Verify tracking JavaScript is added to the question
-- Check that `questionId` matches in both `addOnload` and `addOnPageSubmit`
-- Verify iframe successfully switched to tracking mode after calibration
+### Troubleshooting
 
-### Problem: Data Shows NaN or Null Values
+**Camera Permission Denied**
+- Use HTTPS (required for webcam access)
+- Participants must allow camera in browser
+- Chrome/Edge work best
 
-**Symptoms:** Gaze data contains "NaN" or null coordinates
+**Tracking Iframe Not Found**
+- Verify Q1 calibration completed
+- Check `calibration-iframe` exists in document.body (use browser dev tools)
 
-**Solutions:**
+**No Gaze Data Collected**
+- Verify camera permission granted on Q1
+- Check browser console for errors
+- Ensure embedded data fields set up in Survey Flow
+- Verify `questionId` matches in both `addOnload` and `addOnPageSubmit`
+- Look for `[Calibration] WebGazer is producing predictions` in console
+
+**Coordinates Wrong or NaN/Null**
 - Verify calibration completed successfully
-- Check console for `[Calibration] Tracking mode active` message
-- Verify WebGazer is producing predictions (check console logs)
-- Ensure iframe switched to tracking mode successfully
+- Check for `[Calibration] Tracking mode active` in console
 - Try recalibration if accuracy is poor
 
-### Problem: Coordinates Seem Wrong
+**Data Size Limits**
+- Reduce sampling rate (edit calibration.html)
+- Track fewer questions
+- Use external server for storage
 
-**Symptoms:** Gaze coordinates don't match where participant is looking
-
-**Solutions:**
-- Check that viewport updates are running (look for console logs)
-- Verify no JavaScript errors in coordinate transformation
-- Test with and without scrolling
-- Consider offering recalibration if accuracy is poor
-
-### Problem: Too Much Data / Hitting Size Limits
-
-**Symptoms:** Embedded data fields truncated or survey errors
-
-**Solutions:**
-- Reduce sampling rate from 15 Hz to 10 Hz or lower
-- Track fewer questions (only critical questions)
-- Split data across multiple surveys
-- Use external server for data storage instead of embedded data
-
-## Browser Compatibility
-
-**Supported:**
-- Chrome (desktop): Full support
-- Edge (desktop): Full support
-- Firefox (desktop): Full support
-- Safari (desktop): Partial support (may require permission re-grant)
-
-**Limited/Not Supported:**
-- Mobile browsers: Limited WebGazer support
-- Internet Explorer: Not supported
-
-**Recommendation:** Instruct participants to use Chrome or Edge on desktop for best results.
-
-## Privacy & Data
-
-- Eye tracking runs entirely in participant's browser
-- No video or images are sent to any server
-- Only gaze coordinates (x, y pixel positions) are saved
-- Participants must explicitly grant camera permission
-- Camera only active during survey, stops when survey closes
-
-## Performance Tips
-
-1. **Use 15 Hz sampling** for surveys with 50+ questions
-2. **Offer recalibration** every 10-20 questions for long surveys
-3. **Track selectively** - only add tracking to questions where you need it
-4. **Test first** - run pilot with small sample to verify setup
-5. **Monitor data size** - check embedded data fields don't exceed limits
-
-## Example Survey Structure
-
-Here's a recommended structure for a 30-question survey:
-
-- **Q1**: Calibration (required)
-- **Q2-Q9**: Survey questions with tracking
-- **Q10**: Recalibration question
-- **Q11-Q19**: Survey questions with tracking
-- **Q20**: Recalibration question
-- **Q21-Q29**: Survey questions with tracking
-- **Q30**: Final question with tracking
-
-Total data: ~30 questions × 1.1 KB = ~33 KB (well within limits)
+---
 
 ## Support
 
-For issues, questions, or feature requests:
-- [GitHub Repository](https://github.com/kiante-fernandez/webgazer-qualtrics)
-- [Open an Issue](https://github.com/kiante-fernandez/webgazer-qualtrics/issues)
+Questions or issues? [Open an issue on GitHub](https://github.com/kiante-fernandez/webgazer-qualtrics/issues)
+
+**Additional Resources:**
 - [Code Templates](example-question-code.js)
-
-## Credits
-
-This continuous tracking system uses:
-- [jsPsych](https://www.jspsych.org/) - Behavioral experiment framework
-- [WebGazer.js](https://webgazer.cs.brown.edu/) - Eye tracking library
+- [Main README](../README.md)
