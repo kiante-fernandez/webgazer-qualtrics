@@ -239,39 +239,32 @@
       trial_duration: 2000
     });
 
-    // Run experiment
-    jsPsych.run(timeline);
-
     // ========================================================================
     // AUTO-DETECT TRACKING MODE (for Q2+ questions)
     // ========================================================================
-    // If this iframe is loaded on a tracking question (Q2+), not a calibration question (Q1),
-    // we need to automatically enter tracking mode using saved calibration data
+    // Check BEFORE running jsPsych to avoid conflicts
 
-    window.addEventListener('load', function() {
-      // Wait a moment for jsPsych to potentially start
-      setTimeout(function() {
-        // If tracking mode hasn't been activated yet, check if we should auto-enter it
-        if (!trackingMode) {
-          // Look for saved WebGazer calibration data in localStorage
-          var keys = Object.keys(localStorage);
-          var webgazerKeys = keys.filter(function(k) { return k.startsWith('webgazer'); });
+    // Look for saved WebGazer calibration data in localStorage
+    var keys = Object.keys(localStorage);
+    var webgazerKeys = keys.filter(function(k) { return k.startsWith('webgazer'); });
 
-          if (webgazerKeys.length > 0) {
-            // We have saved calibration data, so we're on a tracking question
-            console.log('[Calibration] Auto-detected tracking mode (Q2+ question)');
-            console.log('[Calibration] Found saved calibration data in localStorage');
+    if (webgazerKeys.length > 0 && !trackingMode) {
+      // We have saved calibration data, so we're on a tracking question (Q2+)
+      // DO NOT run jsPsych - go directly to tracking mode
+      console.log('[Calibration] Auto-detected tracking mode (Q2+ question)');
+      console.log('[Calibration] Found saved calibration data in localStorage');
 
-            // Find the most recent model key
-            var modelKeys = keys.filter(function(k) { return k.startsWith('webgazer_model_'); });
-            var latestModelKey = modelKeys.sort().pop();
+      // Find the most recent model key
+      var modelKeys = keys.filter(function(k) { return k.startsWith('webgazer_model_'); });
+      var latestModelKey = modelKeys.sort().pop();
 
-            // Enter tracking mode
-            initTrackingMode(latestModelKey);
-          }
-        }
-      }, 1000);
-    });
+      // Enter tracking mode immediately (don't wait for page load)
+      initTrackingMode(latestModelKey);
+    } else {
+      // No saved calibration - this is Q1, run calibration
+      console.log('[Calibration] No saved calibration found - running calibration mode');
+      jsPsych.run(timeline);
+    }
 
     // ========================================================================
     // TRACKING MODE - Activated after calibration completes
