@@ -52,18 +52,6 @@ For detailed instructions, see the [Qualtrics Integration Guide](qualtrics/).
 
 ---
 
-## Features
-
-- **No Setup Required** - Uses hosted experiment, just copy-paste the iframe code
-- **Calibration Data Collection** - Records calibration quality without blocking participants
-- **Optional Recalibration** - Offers one recalibration attempt if initial accuracy is low (offset > 200px)
-- **Automatic Data Saving** - Calibration data automatically saves to Qualtrics embedded data
-- **Auto-Advance** - Moves to next question automatically when calibration completes
-- **jsPsych Powered** - Built with the leading behavioral experiment framework
-- **Open Source** - MIT licensed, fork and customize as needed
-
----
-
 ## How It Works
 
 ### The Iframe Approach
@@ -112,7 +100,7 @@ The `eyetracking_validation` field contains a JSON object:
 }
 ```
 
-### Key Metrics
+### Metrics
 
 - **`eyetracking_offset`** (also `average_offset` in validation data) - Average distance in pixels between predicted gaze and target points
   - Lower = better accuracy
@@ -151,7 +139,7 @@ The `eyetracking_validation` field contains a JSON object:
 
 ### Option A: Use Hosted Experiment (Recommended)
 
-Just copy-paste the iframe code from the [Quick Start](#quick-start) section. No installation needed!
+Just copy-paste the code from the [Quick Start](#quick-start) section. No installation needed!
 
 The experiment is hosted at: `https://kiante-fernandez.github.io/webgazer-qualtrics/experiments/calibration.html`
 
@@ -284,12 +272,11 @@ Calibration points are in **percentage coordinates**: `[25, 25]` = 25% from left
 
 | Browser | Support | Notes |
 |---------|---------|-------|
-| Chrome | ✅ Full | Recommended |
-| Edge | ✅ Full | Recommended |
-| Firefox | ✅ Full | Works well |
-| Safari | ⚠️ Limited | Desktop only, some issues |
-| Mobile | ❌ Limited | Front-facing cameras have limited support |
-
+| Chrome | Full | Recommended |
+| Edge | Full | Recommended |
+| Firefox | Full | Works well |
+| Safari | Limited | Desktop only, some issues |
+| Mobile | Limited | Front-facing cameras have limited support |
 **Requirements:**
 - HTTPS connection (for camera access)
 - Modern browser (last 2 major versions)
@@ -359,38 +346,3 @@ If you use this in research, please cite:
 - **Issues:** [GitHub Issues](https://github.com/kiante-fernandez/webgazer-qualtrics/issues)
 - **Discussions:** [GitHub Discussions](https://github.com/kiante-fernandez/webgazer-qualtrics/discussions)
 - **Documentation:** [jsPsych Eye Tracking Guide](https://www.jspsych.org/v8/overview/eye-tracking/)
-
----
-
-## Contributing
-
-Contributions welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
-
----
-
-## Changelog
-
-### v3.0.0 (Current)
-- Single calibration experiment with optional recalibration
-- Calibration data collection focus (no pass/fail logic)
-- All participants continue to survey regardless of accuracy
-- Optional recalibration if offset > 200px
-- jsPsych 8.2.2 integration
-- Automatic data saving via postMessage
-
-### v2.0.0 (Deprecated)
-- Three experiment variants (minimal, standard, full)
-- Iframe approach with postMessage
-
-### v1.0.0 (Deprecated)
-- Header-based approach (does not work due to CSP)
-
----
-
-Made for behavioral researchers

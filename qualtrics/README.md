@@ -82,8 +82,6 @@ Copy and paste this code into your Qualtrics question (HTML view):
 5. **Optional Recalibration** - If accuracy is low (offset > 200px), participant can choose to recalibrate once
 6. **Auto-Advance** - Survey continues to next question
 
-**Important:** All participants continue to the survey regardless of calibration quality. No one is blocked or fails.
-
 ---
 
 ## Data Output
@@ -124,7 +122,7 @@ The `eyetracking_validation` field contains a JSON string:
 }
 ```
 
-**Key metrics:**
+**Metrics:**
 - `average_offset` - Same as `eyetracking_offset` field
 - `percent_in_roi` - Array of percentages (one per validation point) indicating how many gaze predictions fell within the region of interest
 - `raw_gaze` - All raw gaze coordinates during validation
@@ -229,21 +227,6 @@ Qualtrics enforces a Content Security Policy (CSP) that blocks `eval()` in JavaS
 - No video or images are sent to any server
 - Only gaze coordinates (x, y pixel positions) are saved
 - Participants must explicitly grant camera permission
-
----
-
-## Data Analysis Tips
-
-After collecting data:
-
-1. **Quality Control** - Filter responses by `eyetracking_offset`:
-   - Good: < 150px
-   - Acceptable: 150-250px
-   - Poor: > 250px
-
-2. **Check Recalibration** - Use `eyetracking_recalibrated` to see if participants who recalibrated had better accuracy
-
-3. **Parse JSON** - The `eyetracking_validation` field is a JSON string - you'll need to parse it in your analysis software (R, Python, etc.)
 
 ---
 
