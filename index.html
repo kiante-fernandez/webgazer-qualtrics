@@ -173,37 +173,12 @@
       </p>
     </div>
 
-    <div class="info-box">
-      <h2 style="border: none; margin-top: 0;">How It Works</h2>
-      <p>This tool uses an <strong>iframe approach</strong> to bypass Qualtrics Content Security Policy restrictions:</p>
-      <ul style="margin-left: 20px; margin-top: 10px;">
-        <li>Calibration experiment is hosted on GitHub Pages</li>
-        <li>Embedded in Qualtrics via iframe</li>
-        <li>Data sent back via postMessage and saved to embedded data</li>
-        <li>All participants continue regardless of calibration quality</li>
-      </ul>
-    </div>
-
-    <div class="section">
-      <h2>What Data Is Collected</h2>
-      <p>The calibration saves the following to Qualtrics embedded data:</p>
-      <ul style="margin-left: 20px; margin-top: 10px;">
-        <li><code>eyetracking_offset</code> - Average offset in pixels (accuracy metric)</li>
-        <li><code>eyetracking_recalibrated</code> - Whether user chose to recalibrate</li>
-        <li><code>eyetracking_attempts</code> - Number of calibration attempts (1 or 2)</li>
-        <li><code>eyetracking_validation</code> - Full validation data (JSON)</li>
-      </ul>
-      <p style="margin-top: 15px; color: #666;">
-        No blocking or pass/fail logic - all data is recorded for analysis.
-      </p>
-    </div>
-
     <div class="section">
       <h2>Documentation & Resources</h2>
       <ul class="resources">
         <li>
           <a href="qualtrics/">Qualtrics Integration Guide</a>
-          <span style="color: #666; margin-left: 10px; font-size: 0.9em;">Copy-paste iframe code</span>
+          <span style="color: #666; margin-left: 10px; font-size: 0.9em;">Copy-paste code</span>
         </li>
         <li>
           <a href="README.md">README</a>
