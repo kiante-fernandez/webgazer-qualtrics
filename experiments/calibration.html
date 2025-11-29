@@ -266,9 +266,9 @@
         }, 1000);
       }
 
-      // Ensure WebGazer is running and showing video feed
-      console.log('[Calibration] Resuming WebGazer...');
-      webgazer.resume();
+      // Restart WebGazer (automatically loads saved calibration from localStorage)
+      console.log('[Calibration] Restarting WebGazer...');
+      webgazer.begin();
 
       // Show video feed (required for tracking to work)
       webgazer.showVideo(false);
