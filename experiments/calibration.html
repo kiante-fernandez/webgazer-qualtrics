@@ -302,65 +302,65 @@
 
       webgazer.begin().then(function() {
         console.log('[Calibration] WebGazer initialized successfully');
+
+        // Hide video elements (tracking works even when hidden)
+        webgazer.showVideo(false);
+        webgazer.showFaceOverlay(false);
+        webgazer.showFaceFeedbackBox(false);
+
+        // Set up gaze listener for continuous streaming
+        webgazer.setGazeListener(function(data, elapsedTime) {
+          if (!isTracking) {
+            return;
+          }
+
+          if (!data) {
+            return; // Silently ignore null data
+          }
+
+          // Throttle to sampling rate
+          var now = performance.now();
+          var interval = 1000 / samplingRate;
+
+          if (now - lastSampleTime >= interval) {
+            lastSampleTime = now;
+
+            // Transform coordinates: add scroll offset
+            var transformedGaze = {
+              type: 'gaze-data',
+              timestamp: now,
+              x: data.x + viewportOffset.scrollX,
+              y: data.y + viewportOffset.scrollY,
+              rawX: data.x,
+              rawY: data.y,
+              scrollX: viewportOffset.scrollX,
+              scrollY: viewportOffset.scrollY
+            };
+
+            // Send to parent window
+            if (window.parent !== window) {
+              window.parent.postMessage(transformedGaze, '*');
+            }
+          }
+        });
+
+        trackingMode = true;
+
+        // Wait a moment for WebGazer to fully initialize before notifying parent
+        setTimeout(function() {
+          console.log('[Calibration] Tracking mode ready');
+
+          // Notify parent that tracking mode is ready
+          if (window.parent !== window) {
+            window.parent.postMessage({
+              type: 'tracking-ready',
+              modelKey: modelKey
+            }, '*');
+          }
+        }, 1000); // Give WebGazer 1 second to initialize
       }).catch(function(err) {
         console.error('[Calibration] WebGazer initialization error:', err);
       });
-
-      // Hide video elements (tracking works even when hidden)
-      webgazer.showVideo(false);
-      webgazer.showFaceOverlay(false);
-      webgazer.showFaceFeedbackBox(false);
-
-      // Set up gaze listener for continuous streaming
-      webgazer.setGazeListener(function(data, elapsedTime) {
-        if (!isTracking) {
-          return;
-        }
-
-        if (!data) {
-          return; // Silently ignore null data
-        }
-
-        // Throttle to sampling rate
-        var now = performance.now();
-        var interval = 1000 / samplingRate;
-
-        if (now - lastSampleTime >= interval) {
-          lastSampleTime = now;
-
-          // Transform coordinates: add scroll offset
-          var transformedGaze = {
-            type: 'gaze-data',
-            timestamp: now,
-            x: data.x + viewportOffset.scrollX,
-            y: data.y + viewportOffset.scrollY,
-            rawX: data.x,
-            rawY: data.y,
-            scrollX: viewportOffset.scrollX,
-            scrollY: viewportOffset.scrollY
-          };
-
-          // Send to parent window
-          if (window.parent !== window) {
-            window.parent.postMessage(transformedGaze, '*');
-          }
-        }
-      });
-
-      trackingMode = true;
-
-      // Wait a moment for WebGazer to fully initialize before notifying parent
-      setTimeout(function() {
-        console.log('[Calibration] Tracking mode ready');
-
-        // Notify parent that tracking mode is ready
-        if (window.parent !== window) {
-          window.parent.postMessage({
-            type: 'tracking-ready',
-            modelKey: modelKey
-          }, '*');
-        }
-      }, 1000); // Give WebGazer 1 second to initialize
     }
 
     // Listen for commands from parent window
