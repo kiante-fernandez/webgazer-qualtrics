@@ -303,10 +303,8 @@
       webgazer.begin().then(function() {
         console.log('[Calibration] WebGazer initialized successfully');
 
-        // Hide video elements (tracking works even when hidden)
-        webgazer.showVideo(false);
-        webgazer.showFaceOverlay(false);
-        webgazer.showFaceFeedbackBox(false);
+        // DON'T hide video in tracking mode - camera feed must be active for predictions
+        // (iframe is already invisible at 1px × 1px with visibility:hidden)
 
         // Set up gaze listener for continuous streaming
         var gazeCallbackCount = 0;
