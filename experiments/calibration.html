@@ -45,6 +45,29 @@
         // Use the final_validation_data we captured during validation
         var validation_data = final_validation_data;
 
+        // Save WebGazer model to localStorage for continuous tracking
+        var model_key = null;
+        try {
+          // Generate unique model key
+          model_key = 'webgazer_model_' + Date.now();
+
+          // Get WebGazer regression data
+          // Note: WebGazer stores calibration data internally
+          // We'll save a marker that calibration was completed
+          var modelData = {
+            timestamp: Date.now(),
+            calibration_attempts: calibration_attempts,
+            average_offset: validation_data ? validation_data.average_offset : null,
+            calibrated: true
+          };
+
+          localStorage.setItem(model_key, JSON.stringify(modelData));
+          console.log('Saved calibration model to localStorage:', model_key);
+        } catch (error) {
+          console.error('Failed to save model to localStorage:', error);
+          // Continue anyway - model_key will be null but we can still function
+        }
+
         // Send data to parent window (for iframe embedding in Qualtrics)
         if (window.parent !== window) {
           window.parent.postMessage({
@@ -52,13 +75,20 @@
             average_offset: validation_data ? validation_data.average_offset : null,
             recalibrated: calibration_attempts > 1,
             calibration_attempts: calibration_attempts,
-            validation_data: validation_data
+            validation_data: validation_data,
+            model_key: model_key  // NEW: Include model key for continuous tracking
           }, '*');
           console.log('Sent calibration data to parent window');
+
+          // Switch to tracking mode after sending calibration-complete
+          setTimeout(function() {
+            initTrackingMode(model_key);
+          }, 100);
         } else {
           // Standalone mode - display results
           console.log('Calibration complete!');
           console.log('Validation data:', validation_data);
+          console.log('Model key:', model_key);
 
           var offset_text = validation_data && validation_data.average_offset !== undefined
             ? Math.round(validation_data.average_offset) + ' pixels'
@@ -69,6 +99,7 @@
             '<h2>Calibration Complete!</h2>' +
             '<p>Average offset: ' + offset_text + '</p>' +
             '<p>Calibration attempts: ' + calibration_attempts + '</p>' +
+            '<p>Model key: <code>' + (model_key || 'Not saved') + '</code></p>' +
             '<p style="color: #666; font-size: 14px;">Check console for full data</p>' +
             '</div>';
         }
@@ -210,6 +241,145 @@
 
     // Run experiment
     jsPsych.run(timeline);
+
+    // ========================================================================
+    // TRACKING MODE - Activated after calibration completes
+    // ========================================================================
+
+    var trackingMode = false;
+    var isTracking = false;
+    var samplingRate = 15; // Hz (configurable)
+    var viewportOffset = { scrollX: 0, scrollY: 0 };
+    var lastSampleTime = 0;
+
+    function initTrackingMode(modelKey) {
+      console.log('[Calibration] Switching to tracking mode...');
+
+      // Clear the jsPsych UI
+      var target = document.querySelector('#jspsych-target');
+      if (target) {
+        target.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Eye tracking active...</div>';
+
+        // After a moment, hide UI completely
+        setTimeout(function() {
+          target.style.display = 'none';
+        }, 1000);
+      }
+
+      // Ensure WebGazer is running and showing video feed
+      console.log('[Calibration] Resuming WebGazer...');
+      webgazer.resume();
+
+      // Show video feed (required for tracking to work)
+      webgazer.showVideo(false);
+      webgazer.showFaceOverlay(false);
+      webgazer.showFaceFeedbackBox(false);
+
+      // Set up gaze listener for continuous streaming
+      webgazer.setGazeListener(function(data, elapsedTime) {
+        if (!isTracking) {
+          return;
+        }
+
+        if (!data) {
+          console.warn('[Calibration] No gaze data - WebGazer might not be tracking');
+          return;
+        }
+
+        // Throttle to sampling rate
+        var now = performance.now();
+        var interval = 1000 / samplingRate;
+
+        if (now - lastSampleTime >= interval) {
+          lastSampleTime = now;
+
+          // Transform coordinates: add scroll offset
+          var transformedGaze = {
+            type: 'gaze-data',
+            timestamp: now,
+            x: data.x + viewportOffset.scrollX,
+            y: data.y + viewportOffset.scrollY,
+            rawX: data.x,
+            rawY: data.y,
+            scrollX: viewportOffset.scrollX,
+            scrollY: viewportOffset.scrollY
+          };
+
+          // Send to parent window
+          if (window.parent !== window) {
+            window.parent.postMessage(transformedGaze, '*');
+          }
+        }
+      });
+
+      trackingMode = true;
+      console.log('[Calibration] Tracking mode active. Waiting for start-tracking command...');
+
+      // Notify parent that tracking mode is ready
+      if (window.parent !== window) {
+        window.parent.postMessage({
+          type: 'tracking-ready',
+          modelKey: modelKey
+        }, '*');
+      }
+    }
+
+    // Listen for commands from parent window
+    window.addEventListener('message', function(event) {
+      if (!trackingMode) return; // Only respond when in tracking mode
+
+      var data = event.data;
+
+      switch(data.type) {
+        case 'start-tracking':
+          console.log('[Calibration] Starting tracking for question:', data.questionId);
+          isTracking = true;
+
+          // Debug: Check WebGazer status
+          console.log('[Calibration] WebGazer isReady:', webgazer.isReady());
+
+          // Force a check by getting current prediction
+          webgazer.getCurrentPrediction().then(function(prediction) {
+            if (prediction) {
+              console.log('[Calibration] WebGazer is producing predictions:', prediction);
+            } else {
+              console.error('[Calibration] WebGazer is NOT producing predictions!');
+            }
+          });
+          break;
+
+        case 'pause-tracking':
+          console.log('[Calibration] Pausing tracking');
+          isTracking = false;
+          break;
+
+        case 'resume-tracking':
+          console.log('[Calibration] Resuming tracking');
+          isTracking = true;
+          break;
+
+        case 'viewport-update':
+          // Update viewport offset for coordinate transformation
+          viewportOffset.scrollX = data.scrollX || 0;
+          viewportOffset.scrollY = data.scrollY || 0;
+          break;
+
+        case 'recalibrate':
+          console.log('[Calibration] Recalibration requested');
+          // Pause tracking
+          isTracking = false;
+
+          // Show jsPsych UI again
+          var target = document.querySelector('#jspsych-target');
+          if (target) {
+            target.style.display = 'block';
+          }
+
+          // Re-run calibration timeline
+          jsPsych.run(create_calibration_sequence());
+          break;
+      }
+    });
   </script>
 </body>
 </html>
