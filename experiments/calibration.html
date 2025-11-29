@@ -299,9 +299,14 @@
 
       // Restart WebGazer (automatically loads saved calibration from localStorage)
       console.log('[Calibration] Restarting WebGazer...');
-      webgazer.begin();
 
-      // Show video feed (required for tracking to work)
+      webgazer.begin().then(function() {
+        console.log('[Calibration] WebGazer initialized successfully');
+      }).catch(function(err) {
+        console.error('[Calibration] WebGazer initialization error:', err);
+      });
+
+      // Hide video elements (tracking works even when hidden)
       webgazer.showVideo(false);
       webgazer.showFaceOverlay(false);
       webgazer.showFaceFeedbackBox(false);
@@ -313,8 +318,7 @@
         }
 
         if (!data) {
-          console.warn('[Calibration] No gaze data - WebGazer might not be tracking');
-          return;
+          return; // Silently ignore null data
         }
 
         // Throttle to sampling rate
@@ -344,15 +348,19 @@
       });
 
       trackingMode = true;
-      console.log('[Calibration] Tracking mode active. Waiting for start-tracking command...');
 
-      // Notify parent that tracking mode is ready
-      if (window.parent !== window) {
-        window.parent.postMessage({
-          type: 'tracking-ready',
-          modelKey: modelKey
-        }, '*');
-      }
+      // Wait a moment for WebGazer to fully initialize before notifying parent
+      setTimeout(function() {
+        console.log('[Calibration] Tracking mode ready');
+
+        // Notify parent that tracking mode is ready
+        if (window.parent !== window) {
+          window.parent.postMessage({
+            type: 'tracking-ready',
+            modelKey: modelKey
+          }, '*');
+        }
+      }, 1000); // Give WebGazer 1 second to initialize
     }
 
     // Listen for commands from parent window
@@ -365,18 +373,6 @@
         case 'start-tracking':
           console.log('[Calibration] Starting tracking for question:', data.questionId);
           isTracking = true;
-
-          // Debug: Check WebGazer status
-          console.log('[Calibration] WebGazer isReady:', webgazer.isReady());
-
-          // Force a check by getting current prediction
-          webgazer.getCurrentPrediction().then(function(prediction) {
-            if (prediction) {
-              console.log('[Calibration] WebGazer is producing predictions:', prediction);
-            } else {
-              console.error('[Calibration] WebGazer is NOT producing predictions!');
-            }
-          });
           break;
 
         case 'pause-tracking':
