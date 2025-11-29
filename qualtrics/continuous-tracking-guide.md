@@ -32,7 +32,7 @@ Show iframe → Recalibrate → Hide iframe → Resume tracking
 
 ## Setup Guide
 
-Follow these 4 steps to add continuous eye tracking to your Qualtrics survey.
+Follow these 5 steps to add continuous eye tracking to your Qualtrics survey.
 
 ### Step 1: Set Up Embedded Data Fields
 
@@ -66,87 +66,22 @@ gaze_Q12
 5. **Move this element to the TOP** of your Survey Flow
 6. Click **"Save Flow"**
 
-### Step 2: Create Question 1 (Calibration)
+### Step 2: Create Persistent Iframe (Header)
 
 **In Qualtrics:**
-1. Add a new **"Text/Graphic"** question as your first survey question
-2. Click the **HTML view** button (`<>`)
-3. **Copy and paste this code**:
+1. Go to **Look & Feel** (top of survey editor)
+2. Click **"General"** tab
+3. Scroll down to **"Header"** section
+4. Click **"Edit"**
+5. **Copy and paste this code**:
 
 ```html
-<div style="width: 100%; height: 800px;">
-  <!-- Single persistent iframe for both calibration and tracking -->
-  <iframe id="calibration-iframe"
-    src="https://kiante-fernandez.github.io/webgazer-qualtrics/experiments/calibration.html"
-    width="100%" height="800px"
-    allow="camera; microphone"
-    style="border: none;">
-  </iframe>
-</div>
-
 <script>
-  window.addEventListener('message', function(event) {
-    if (event.data.type === 'calibration-complete') {
-      // Save calibration data to embedded data
-      Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_offset', event.data.average_offset);
-      Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_recalibrated', event.data.recalibrated);
-      Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_attempts', event.data.calibration_attempts);
-      Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_validation', JSON.stringify(event.data.validation_data));
-      Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_model_key', event.data.model_key);
+// Create persistent iframe that lives throughout entire survey
+(function() {
+  // Only create once
+  if (document.getElementById('calibration-iframe')) return;
 
-      // Hide the calibration iframe (it switches to tracking mode automatically)
-      const calibrationIframe = document.getElementById('calibration-iframe');
-      if (calibrationIframe) {
-        // Make iframe hidden but keep it loaded
-        calibrationIframe.style.position = 'fixed';
-        calibrationIframe.style.bottom = '0';
-        calibrationIframe.style.left = '0';
-        calibrationIframe.style.width = '1px';
-        calibrationIframe.style.height = '1px';
-        calibrationIframe.style.border = 'none';
-        calibrationIframe.style.visibility = 'hidden';
-        calibrationIframe.style.pointerEvents = 'none';
-        calibrationIframe.style.zIndex = '-1';
-
-        // Move iframe to document.body to persist across questions
-        document.body.appendChild(calibrationIframe);
-      }
-
-      // Auto-advance to next question after 1.5 seconds
-      setTimeout(function() {
-        document.querySelector('#NextButton').click();
-      }, 1500);
-    }
-  });
-</script>
-
-<style>
-  #NextButton { display: none !important; }
-</style>
-```
-
-4. Save the question
-
-**What this does:**
-- Shows calibration interface to participant
-- After calibration, iframe becomes hidden and persists
-- Auto-advances to Question 2
-
-### Step 3: Add Tracking to Questions 2+
-
-**For each survey question you want to track** (Q2, Q3, Q4, Q5, etc.):
-
-**In Qualtrics:**
-1. Create your survey question normally (Multiple Choice, Text Entry, etc.)
-2. Click the gear icon → **"Add JavaScript"**
-3. **Copy and paste this code**:
-
-```javascript
-Qualtrics.SurveyEngine.addOnload(function() {
-  // ⚠️ IMPORTANT: Change this to match your question number (Q2, Q3, Q4, etc.)
-  const questionId = 'Q2';  // ← UPDATE THIS FOR EACH QUESTION
-
-  // Create hidden tracking iframe (loads calibration from localStorage)
   const iframe = document.createElement('iframe');
   iframe.id = 'calibration-iframe';
   iframe.src = 'https://kiante-fernandez.github.io/webgazer-qualtrics/experiments/calibration.html';
@@ -161,6 +96,105 @@ Qualtrics.SurveyEngine.addOnload(function() {
   iframe.style.pointerEvents = 'none';
   iframe.style.zIndex = '-1';
   document.body.appendChild(iframe);
+
+  console.log('[Header] Persistent iframe created');
+})();
+</script>
+```
+
+6. Click **"Save"**
+
+**What this does:**
+- Creates ONE iframe when survey starts that persists across all questions
+- Iframe starts hidden (1px × 1px, invisible)
+- Q1 will make it visible for calibration, then hide it again
+- Q2+ reuse the same iframe for tracking
+
+### Step 3: Create Question 1 (Calibration)
+
+**In Qualtrics:**
+1. Add a new **"Text/Graphic"** question as your first survey question
+2. Set the question text to: **"Please complete the eye tracking calibration."**
+3. Click the gear icon → **"Add JavaScript"**
+4. **Copy and paste this code**:
+
+```javascript
+Qualtrics.SurveyEngine.addOnload(function() {
+  const iframe = document.getElementById('calibration-iframe');
+
+  if (!iframe) {
+    console.error('[Q1] Persistent iframe not found! Check header setup.');
+    return;
+  }
+
+  // Make iframe visible and full-size for calibration
+  iframe.style.width = '100%';
+  iframe.style.height = '800px';
+  iframe.style.position = 'relative';
+  iframe.style.visibility = 'visible';
+  iframe.style.pointerEvents = 'auto';
+  iframe.style.zIndex = '1';
+
+  // Listen for calibration-complete message from iframe
+  window.addEventListener('message', function(event) {
+    if (event.data.type === 'calibration-complete') {
+      console.log('[Q1] Calibration complete, hiding iframe');
+
+      // Save calibration data to embedded data
+      Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_offset', event.data.average_offset);
+      Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_recalibrated', event.data.recalibrated);
+      Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_attempts', event.data.calibration_attempts);
+      Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_validation', JSON.stringify(event.data.validation_data));
+      Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_model_key', event.data.model_key);
+
+      // Hide iframe (but keep it alive!)
+      iframe.style.width = '1px';
+      iframe.style.height = '1px';
+      iframe.style.position = 'fixed';
+      iframe.style.bottom = '0';
+      iframe.style.left = '0';
+      iframe.style.visibility = 'hidden';
+      iframe.style.pointerEvents = 'none';
+      iframe.style.zIndex = '-1';
+
+      // Advance to next question after brief delay
+      setTimeout(function() {
+        document.getElementById('NextButton').click();
+      }, 1000);
+    }
+  });
+});
+```
+
+5. Save the question
+
+**What this does:**
+- Makes the persistent iframe visible for calibration
+- After calibration completes, hides the iframe again
+- Iframe stays alive in tracking mode throughout rest of survey
+- Auto-advances to Question 2
+
+### Step 4: Add Tracking to Questions 2+
+
+**For each survey question you want to track** (Q2, Q3, Q4, Q5, etc.):
+
+**In Qualtrics:**
+1. Create your survey question normally (Multiple Choice, Text Entry, etc.)
+2. Click the gear icon → **"Add JavaScript"**
+3. **Copy and paste this code**:
+
+```javascript
+Qualtrics.SurveyEngine.addOnload(function() {
+  // ⚠️ IMPORTANT: Change this to match your question number (Q2, Q3, Q4, etc.)
+  const questionId = 'Q2';  // ← UPDATE THIS FOR EACH QUESTION
+
+  // Get the persistent iframe (created by header)
+  const iframe = document.getElementById('calibration-iframe');
+
+  if (!iframe) {
+    console.error('[Q' + questionId.substring(1) + '] Persistent iframe not found!');
+    return;
+  }
 
   let gazeData = [];
   let trackingStartTime = performance.now();
@@ -252,13 +286,13 @@ Qualtrics.SurveyEngine.addOnPageSubmit(function() {
 ```
 
 4. **Update the `questionId` variable** in TWO places:
-   - Line 147: `const questionId = 'Q2';` → Change to your question number
-   - Line 215: `const questionId = 'Q2';` → Change to match
+   - Line 189: `const questionId = 'Q2';` → Change to your question number
+   - Line 238: `const questionId = 'Q2';` → Change to match
 5. Save the question
 
 **Repeat for all tracked questions**: Q2, Q3, Q4, Q5, Q6, Q7, Q8, Q9, Q11, Q12, etc. (skip Q10 for now)
 
-### Step 4: Add Recalibration Questions (Optional but Recommended)
+### Step 5: Add Recalibration Questions (Optional but Recommended)
 
 **For Question 10** (and Q20, Q30, Q40 if your survey is long):
 
@@ -333,21 +367,13 @@ Qualtrics.SurveyEngine.addOnPageSubmit(function() {
 Qualtrics.SurveyEngine.addOnload(function() {
   const questionId = 'Q10';  // ⚠️ UPDATE FOR EACH RECALIBRATION QUESTION
 
-  // Create hidden tracking iframe (loads calibration from localStorage)
-  const iframe = document.createElement('iframe');
-  iframe.id = 'calibration-iframe';
-  iframe.src = 'https://kiante-fernandez.github.io/webgazer-qualtrics/experiments/calibration.html';
-  iframe.allow = 'camera; microphone';
-  iframe.style.position = 'fixed';
-  iframe.style.bottom = '0';
-  iframe.style.left = '0';
-  iframe.style.width = '1px';
-  iframe.style.height = '1px';
-  iframe.style.border = 'none';
-  iframe.style.visibility = 'hidden';
-  iframe.style.pointerEvents = 'none';
-  iframe.style.zIndex = '-1';
-  document.body.appendChild(iframe);
+  // Get the persistent iframe (created by header)
+  const iframe = document.getElementById('calibration-iframe');
+
+  if (!iframe) {
+    console.error('[Q' + questionId.substring(1) + '] Persistent iframe not found!');
+    return;
+  }
 
   let gazeData = [];
   let trackingStartTime = performance.now();
@@ -434,9 +460,9 @@ Qualtrics.SurveyEngine.addOnPageSubmit(function() {
 ```
 
 6. **Update question IDs** in THREE places:
-   - HTML: `'recalibrated_at_Q10'` (line 303)
-   - JavaScript: `const questionId = 'Q10';` (line 319)
-   - JavaScript: `const questionId = 'Q10';` (line 386)
+   - HTML: `'recalibrated_at_Q10'` (line 352)
+   - JavaScript: `const questionId = 'Q10';` (line 368)
+   - JavaScript: `const questionId = 'Q10';` (line 448)
 7. Save the question
 
 **Repeat for Q20, Q30, Q40** if your survey has 20+ questions.

@@ -12,34 +12,87 @@
  */
 
 // ============================================================================
-// QUESTION 1: CALIBRATION + TRACKER INITIALIZATION
+// HEADER: PERSISTENT IFRAME (REQUIRED - Add this FIRST)
 // ============================================================================
 /*
- * Use this template for the FIRST question in your survey.
- * This sets up both calibration and the persistent tracking iframe.
+ * Add this to Look & Feel > General > Header BEFORE setting up any questions.
+ * This creates ONE iframe that persists throughout the entire survey.
+ *
+ * Instructions:
+ * 1. In Qualtrics, go to Look & Feel (top of survey editor)
+ * 2. Click "General" tab
+ * 3. Scroll down to "Header" section
+ * 4. Click "Edit"
+ * 5. Paste the code below
+ * 6. Click "Save"
+ */
+
+// HEADER CODE (Look & Feel > General > Header):
+/*
+<script>
+// Create persistent iframe that lives throughout entire survey
+(function() {
+  // Only create once
+  if (document.getElementById('calibration-iframe')) return;
+
+  const iframe = document.createElement('iframe');
+  iframe.id = 'calibration-iframe';
+  iframe.src = 'https://kiante-fernandez.github.io/webgazer-qualtrics/experiments/calibration.html';
+  iframe.allow = 'camera; microphone';
+  iframe.style.position = 'fixed';
+  iframe.style.bottom = '0';
+  iframe.style.left = '0';
+  iframe.style.width = '1px';
+  iframe.style.height = '1px';
+  iframe.style.border = 'none';
+  iframe.style.visibility = 'hidden';
+  iframe.style.pointerEvents = 'none';
+  iframe.style.zIndex = '-1';
+  document.body.appendChild(iframe);
+
+  console.log('[Header] Persistent iframe created');
+})();
+</script>
+*/
+
+// ============================================================================
+// QUESTION 1: CALIBRATION
+// ============================================================================
+/*
+ * Use this template for the FIRST question in your survey (after setting up header).
+ * This makes the persistent iframe visible for calibration, then hides it again.
  *
  * Instructions:
  * 1. Create a new "Text/Graphic" question in Qualtrics
- * 2. Click the HTML view button (<>)
- * 3. Paste the HTML code below
- * 4. Save the question
+ * 2. Set question text to: "Please complete the eye tracking calibration."
+ * 3. Click the gear icon → "Add JavaScript"
+ * 4. Paste the JavaScript code below
+ * 5. Save the question
  */
 
-// HTML CODE FOR QUESTION 1:
+// JAVASCRIPT CODE FOR QUESTION 1:
 /*
-<div style="width: 100%; height: 800px;">
-  <!-- Single persistent iframe for both calibration and tracking -->
-  <iframe id="calibration-iframe"
-    src="https://kiante-fernandez.github.io/webgazer-qualtrics/experiments/calibration.html"
-    width="100%" height="800px"
-    allow="camera; microphone"
-    style="border: none;">
-  </iframe>
-</div>
+Qualtrics.SurveyEngine.addOnload(function() {
+  const iframe = document.getElementById('calibration-iframe');
 
-<script>
+  if (!iframe) {
+    console.error('[Q1] Persistent iframe not found! Check header setup.');
+    return;
+  }
+
+  // Make iframe visible and full-size for calibration
+  iframe.style.width = '100%';
+  iframe.style.height = '800px';
+  iframe.style.position = 'relative';
+  iframe.style.visibility = 'visible';
+  iframe.style.pointerEvents = 'auto';
+  iframe.style.zIndex = '1';
+
+  // Listen for calibration-complete message from iframe
   window.addEventListener('message', function(event) {
     if (event.data.type === 'calibration-complete') {
+      console.log('[Q1] Calibration complete, hiding iframe');
+
       // Save calibration data to embedded data
       Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_offset', event.data.average_offset);
       Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_recalibrated', event.data.recalibrated);
@@ -47,35 +100,23 @@
       Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_validation', JSON.stringify(event.data.validation_data));
       Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_model_key', event.data.model_key);
 
-      // Hide the calibration iframe (it switches to tracking mode automatically)
-      const calibrationIframe = document.getElementById('calibration-iframe');
-      if (calibrationIframe) {
-        // Make iframe hidden but keep it loaded
-        calibrationIframe.style.position = 'fixed';
-        calibrationIframe.style.bottom = '0';
-        calibrationIframe.style.left = '0';
-        calibrationIframe.style.width = '1px';
-        calibrationIframe.style.height = '1px';
-        calibrationIframe.style.border = 'none';
-        calibrationIframe.style.visibility = 'hidden';
-        calibrationIframe.style.pointerEvents = 'none';
-        calibrationIframe.style.zIndex = '-1';
+      // Hide iframe (but keep it alive!)
+      iframe.style.width = '1px';
+      iframe.style.height = '1px';
+      iframe.style.position = 'fixed';
+      iframe.style.bottom = '0';
+      iframe.style.left = '0';
+      iframe.style.visibility = 'hidden';
+      iframe.style.pointerEvents = 'none';
+      iframe.style.zIndex = '-1';
 
-        // Move iframe to document.body to persist across questions
-        document.body.appendChild(calibrationIframe);
-      }
-
-      // Auto-advance to next question after 1.5 seconds
+      // Advance to next question after brief delay
       setTimeout(function() {
-        document.querySelector('#NextButton').click();
-      }, 1500);
+        document.getElementById('NextButton').click();
+      }, 1000);
     }
   });
-</script>
-
-<style>
-  #NextButton { display: none !important; }
-</style>
+});
 */
 
 // ============================================================================
@@ -98,21 +139,13 @@ Qualtrics.SurveyEngine.addOnload(function() {
   // ⚠️ IMPORTANT: Change this to match your question number (Q2, Q3, Q4, etc.)
   const questionId = 'Q2';  // ← UPDATE THIS FOR EACH QUESTION
 
-  // Create hidden tracking iframe (loads calibration from localStorage)
-  const iframe = document.createElement('iframe');
-  iframe.id = 'calibration-iframe';
-  iframe.src = 'https://kiante-fernandez.github.io/webgazer-qualtrics/experiments/calibration.html';
-  iframe.allow = 'camera; microphone';
-  iframe.style.position = 'fixed';
-  iframe.style.bottom = '0';
-  iframe.style.left = '0';
-  iframe.style.width = '1px';
-  iframe.style.height = '1px';
-  iframe.style.border = 'none';
-  iframe.style.visibility = 'hidden';
-  iframe.style.pointerEvents = 'none';
-  iframe.style.zIndex = '-1';
-  document.body.appendChild(iframe);
+  // Get the persistent iframe (created by header)
+  const iframe = document.getElementById('calibration-iframe');
+
+  if (!iframe) {
+    console.error('[Q' + questionId.substring(1) + '] Persistent iframe not found!');
+    return;
+  }
 
   let gazeData = [];
   let trackingStartTime = performance.now();
@@ -308,21 +341,13 @@ Qualtrics.SurveyEngine.addOnload(function() {
   // ⚠️ IMPORTANT: Change this to match your question number (Q10, Q20, Q30, etc.)
   const questionId = 'Q10';  // ← UPDATE THIS FOR EACH RECALIBRATION QUESTION
 
-  // Create hidden tracking iframe (loads calibration from localStorage)
-  const iframe = document.createElement('iframe');
-  iframe.id = 'calibration-iframe';
-  iframe.src = 'https://kiante-fernandez.github.io/webgazer-qualtrics/experiments/calibration.html';
-  iframe.allow = 'camera; microphone';
-  iframe.style.position = 'fixed';
-  iframe.style.bottom = '0';
-  iframe.style.left = '0';
-  iframe.style.width = '1px';
-  iframe.style.height = '1px';
-  iframe.style.border = 'none';
-  iframe.style.visibility = 'hidden';
-  iframe.style.pointerEvents = 'none';
-  iframe.style.zIndex = '-1';
-  document.body.appendChild(iframe);
+  // Get the persistent iframe (created by header)
+  const iframe = document.getElementById('calibration-iframe');
+
+  if (!iframe) {
+    console.error('[Q' + questionId.substring(1) + '] Persistent iframe not found!');
+    return;
+  }
 
   let gazeData = [];
   let trackingStartTime = performance.now();

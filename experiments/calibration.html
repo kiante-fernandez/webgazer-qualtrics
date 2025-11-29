@@ -239,32 +239,9 @@
       trial_duration: 2000
     });
 
-    // ========================================================================
-    // AUTO-DETECT TRACKING MODE (for Q2+ questions)
-    // ========================================================================
-    // Check BEFORE running jsPsych to avoid conflicts
-
-    // Look for saved WebGazer calibration data in localStorage
-    var keys = Object.keys(localStorage);
-    var webgazerKeys = keys.filter(function(k) { return k.startsWith('webgazer'); });
-
-    if (webgazerKeys.length > 0 && !trackingMode) {
-      // We have saved calibration data, so we're on a tracking question (Q2+)
-      // DO NOT run jsPsych - go directly to tracking mode
-      console.log('[Calibration] Auto-detected tracking mode (Q2+ question)');
-      console.log('[Calibration] Found saved calibration data in localStorage');
-
-      // Find the most recent model key
-      var modelKeys = keys.filter(function(k) { return k.startsWith('webgazer_model_'); });
-      var latestModelKey = modelKeys.sort().pop();
-
-      // Enter tracking mode immediately (don't wait for page load)
-      initTrackingMode(latestModelKey);
-    } else {
-      // No saved calibration - this is Q1, run calibration
-      console.log('[Calibration] No saved calibration found - running calibration mode');
-      jsPsych.run(timeline);
-    }
+    // Run calibration (iframe only loads once from header, so this runs once on Q1)
+    console.log('[Calibration] Running calibration mode');
+    jsPsych.run(timeline);
 
     // ========================================================================
     // TRACKING MODE - Activated after calibration completes
