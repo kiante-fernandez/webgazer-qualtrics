@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Test Iframe Integration (Simulates Qualtrics)</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    h1 {
+      color: #2c3e50;
+    }
+    .test-section {
+      background: white;
+      padding: 20px;
+      margin-bottom: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .iframe-container {
+      width: 100%;
+      height: 800px;
+      border: 2px solid #3498db;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+    .data-output {
+      background: #f8f9fa;
+      padding: 15px;
+      border-left: 4px solid #28a745;
+      border-radius: 4px;
+      margin-top: 20px;
+    }
+    .data-output h3 {
+      margin-top: 0;
+      color: #28a745;
+    }
+    pre {
+      background: #272822;
+      color: #f8f8f2;
+      padding: 15px;
+      border-radius: 4px;
+      overflow-x: auto;
+    }
+    .status {
+      padding: 10px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+    }
+    .status.waiting {
+      background: #fff3cd;
+      color: #856404;
+      border-left: 4px solid #ffc107;
+    }
+    .status.success {
+      background: #d4edda;
+      color: #155724;
+      border-left: 4px solid #28a745;
+    }
+    .variant-selector {
+      margin: 20px 0;
+    }
+    .variant-selector button {
+      background: #3498db;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      margin-right: 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .variant-selector button:hover {
+      background: #2980b9;
+    }
+    .variant-selector button.active {
+      background: #28a745;
+    }
+    #NextButton {
+      background: #28a745;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 4px;
+      font-size: 16px;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+    #NextButton:hover {
+      background: #218838;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🧪 Iframe Integration Test (Simulates Qualtrics)</h1>
+
+    <div class="test-section">
+      <h2>Instructions</h2>
+      <ol>
+        <li>Select an experiment variant below</li>
+        <li>Grant camera permission when prompted</li>
+        <li>Complete the calibration and validation</li>
+        <li>Watch for the "Data Received" message below</li>
+        <li>The "Next" button should appear automatically (simulating Qualtrics auto-advance)</li>
+      </ol>
+    </div>
+
+    <div class="variant-selector">
+      <strong>Choose Experiment Variant:</strong><br><br>
+      <button onclick="loadExperiment('minimal')" class="active" id="btn-minimal">Minimal (~30 sec)</button>
+      <button onclick="loadExperiment('standard')" id="btn-standard">Standard (~2 min)</button>
+      <button onclick="loadExperiment('full')" id="btn-full">Full (~5 min)</button>
+    </div>
+
+    <div id="status-message" class="status waiting">
+      ⏳ Waiting for eye tracking data...
+    </div>
+
+    <div class="test-section">
+      <h2>Eye Tracking Experiment</h2>
+      <div class="iframe-container">
+        <iframe
+          id="eyetracking-iframe"
+          src="experiments/minimal.html"
+          allow="camera; microphone">
+        </iframe>
+      </div>
+    </div>
+
+    <div class="data-output" id="data-output" style="display: none;">
+      <h3>✓ Data Received via postMessage!</h3>
+      <p><strong>This simulates data being saved to Qualtrics embedded data.</strong></p>
+
+      <h4>Embedded Data Fields:</h4>
+      <p><code>eyetracking_validation:</code></p>
+      <pre id="validation-data"></pre>
+
+      <p><code>eyetracking_average_offset:</code> <span id="average-offset" style="font-size: 18px; font-weight: bold;"></span> pixels</p>
+
+      <h4>Full postMessage Event:</h4>
+      <pre id="full-data"></pre>
+    </div>
+
+    <button id="NextButton" style="display: none;">Next Question (Auto-clicked after 1 second) →</button>
+  </div>
+
+  <script>
+    let currentVariant = 'minimal';
+
+    function loadExperiment(variant) {
+      currentVariant = variant;
+      const iframe = document.getElementById('eyetracking-iframe');
+      iframe.src = 'experiments/' + variant + '.html';
+
+      // Reset UI
+      document.getElementById('status-message').className = 'status waiting';
+      document.getElementById('status-message').innerHTML = '⏳ Waiting for eye tracking data...';
+      document.getElementById('data-output').style.display = 'none';
+      document.getElementById('NextButton').style.display = 'none';
+
+      // Update button states
+      document.querySelectorAll('.variant-selector button').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      document.getElementById('btn-' + variant).classList.add('active');
+
+      console.log('🔄 Loaded experiment:', variant);
+    }
+
+    // Listen for postMessage from iframe (simulates Qualtrics listener)
+    window.addEventListener('message', function(event) {
+      console.log('📨 Received postMessage:', event.data);
+
+      if (event.data.type === 'eyetracking-complete') {
+        // Update status
+        document.getElementById('status-message').className = 'status success';
+        document.getElementById('status-message').innerHTML = '✓ Eye tracking data received successfully!';
+
+        // Show data output
+        document.getElementById('data-output').style.display = 'block';
+
+        // Handle different data formats (minimal/standard vs full)
+        if (event.data.validation) {
+          // Minimal or Standard variant
+          const validation = event.data.validation;
+
+          // Simulate saving to Qualtrics embedded data
+          console.log('💾 Saving to embedded data:', {
+            eyetracking_validation: JSON.stringify(validation),
+            eyetracking_average_offset: validation.average_offset
+          });
+
+          // Display the data
+          document.getElementById('validation-data').textContent = JSON.stringify(validation, null, 2);
+          document.getElementById('average-offset').textContent = Math.round(validation.average_offset);
+          document.getElementById('full-data').textContent = JSON.stringify(event.data, null, 2);
+
+        } else if (event.data.eyetracking_data) {
+          // Full variant (sends arrays)
+          console.log('💾 Saving to embedded data:', {
+            eyetracking_data: JSON.stringify(event.data.eyetracking_data),
+            calibration_data: JSON.stringify(event.data.calibration_data)
+          });
+
+          // Display the data
+          document.getElementById('validation-data').textContent = JSON.stringify(event.data.eyetracking_data, null, 2);
+
+          // Get average offset from the validation data
+          const validationData = event.data.eyetracking_data[event.data.eyetracking_data.length - 1];
+          if (validationData && validationData.average_offset) {
+            document.getElementById('average-offset').textContent = Math.round(validationData.average_offset);
+          } else {
+            document.getElementById('average-offset').textContent = 'N/A';
+          }
+
+          document.getElementById('full-data').textContent = JSON.stringify(event.data, null, 2);
+        }
+
+        // Simulate Qualtrics auto-advance (show Next button, then auto-click after 1 second)
+        const nextButton = document.getElementById('NextButton');
+        nextButton.style.display = 'inline-block';
+
+        setTimeout(function() {
+          console.log('✓ Auto-clicking Next button (simulating Qualtrics)');
+          nextButton.textContent = 'Next Question (Clicked!) ✓';
+          nextButton.style.background = '#28a745';
+
+          // In real Qualtrics, this would advance to the next question
+          // Here we just show a message
+          setTimeout(function() {
+            alert('✓ Test Complete!\n\nIn Qualtrics, this would advance to the next question.\n\nData successfully received and saved to embedded data.');
+          }, 500);
+        }, 1000);
+      }
+    });
+
+    console.log('🧪 Test page loaded. Waiting for experiment to complete...');
+  </script>
+</body>
+</html>
