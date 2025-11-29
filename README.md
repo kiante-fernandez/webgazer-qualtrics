@@ -50,6 +50,19 @@ The eye tracker will calibrate automatically, and calibration data will be saved
 
 For detailed instructions, see the [Qualtrics Integration Guide](qualtrics/).
 
+## Continuous Eye Tracking
+
+Want to track where participants look throughout your **entire survey** - not just during calibration? Working on it:
+
+This feature:
+- Calibrates once at the start
+- Tracks gaze on every survey question
+- Supports arbitrarily large surveys (50+ questions)
+- Collects raw gaze streams at 15 Hz
+- Optional recalibration every N questions
+
+**[→ Get Started with Continuous Tracking See](qualtrics/continuous-tracking-guide.md)**
+
 ---
 
 ## How It Works

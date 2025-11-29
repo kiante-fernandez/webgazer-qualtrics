@@ -60,7 +60,7 @@ This ensures calibration data is never lost during page transitions.
 - `recalibrated_at_Q20`
 - ... (one for each recalibration point)
 
-5. **Move this element to the very TOP** of your Survey Flow
+5. **Move this element to the TOP** of your Survey Flow
 6. Click **"Save Flow"**
 
 ### Step 2: Create Question 1 (Calibration)
@@ -196,40 +196,6 @@ At 15 Hz sampling rate:
 - ~15 samples per second
 - ~1.1 KB per 5-second question
 - 50 questions = ~55 KB total (well within Qualtrics limits)
-
-### Parsing Data
-
-**In R:**
-```r
-library(tidyr)
-
-# Parse single question
-gaze_raw <- "0,512,384|67,515,386|134,518,390"
-gaze_df <- data.frame(raw = unlist(strsplit(gaze_raw, "\\|")))
-gaze_df <- separate(gaze_df, raw, into = c("t", "x", "y"), sep = ",", convert = TRUE)
-
-# Result:
-#     t   x   y
-# 1   0 512 384
-# 2  67 515 386
-# 3 134 518 390
-```
-
-**In Python:**
-```python
-import pandas as pd
-
-# Parse single question
-gaze_raw = "0,512,384|67,515,386|134,518,390"
-samples = [s.split(',') for s in gaze_raw.split('|')]
-gaze_df = pd.DataFrame(samples, columns=['t', 'x', 'y']).astype(int)
-
-# Result:
-#      t    x    y
-# 0    0  512  384
-# 1   67  515  386
-# 2  134  518  390
-```
 
 ## Configuration Options
 
