@@ -12,7 +12,7 @@ Add eye tracking calibration to your Qualtrics survey in 3 steps:
 
 In your Qualtrics survey, add a new **Text/Graphic** question where you want eye tracking calibration to occur.
 
-### 2. Paste the Iframe Code
+### 2. Paste the Code
 
 Switch to **HTML view** (`<>` button) and paste this code:
 
@@ -46,7 +46,7 @@ Switch to **HTML view** (`<>` button) and paste this code:
 
 ### 3. Done!
 
-The eye tracker will calibrate automatically, and calibration data will be saved to Qualtrics embedded data. All participants continue to the survey regardless of calibration quality.
+The eye tracker will calibrate automatically, and calibration data will be saved to Qualtrics embedded data.
 
 For detailed instructions, see the [Qualtrics Integration Guide](qualtrics/).
 
@@ -214,60 +214,6 @@ Calibration points are in **percentage coordinates**: `[25, 25]` = 25% from left
 
 ---
 
-## Troubleshooting
-
-### Camera Permission Denied
-
-**Symptoms:** Participants see "Permission denied" or camera doesn't start.
-
-**Solutions:**
-- Ensure survey is accessed via **HTTPS** (required for camera access)
-- Ask participants to check browser permissions and allow camera
-- Test in different browsers (Chrome/Edge work best)
-
-### Poor Calibration Accuracy
-
-**Symptoms:** `eyetracking_offset` > 300 pixels consistently.
-
-**Solutions:**
-- If offset > 200px, participants are offered optional recalibration
-- Add instructions emphasizing:
-  - Good lighting on face
-  - Stay still during calibration
-  - Look directly at each dot
-- Filter out low-quality responses in analysis using `eyetracking_offset` field
-
-### Iframe Not Displaying
-
-**Symptoms:** Blank space or error message.
-
-**Solutions:**
-- Check browser console for errors (F12)
-- Verify iframe `src` URL is correct and accessible
-- Some corporate networks block iframes - test on different network
-- Ensure Qualtrics account allows iframe embedding
-
-### Data Not Saving
-
-**Symptoms:** Embedded data fields are empty.
-
-**Solutions:**
-- Create embedded data fields in **Survey Flow** (before the eye tracking question)
-- Field names must match exactly: `eyetracking_offset`, `eyetracking_recalibrated`, `eyetracking_attempts`, `eyetracking_validation`
-- Check browser console for JavaScript errors
-- Verify the postMessage listener code is included
-
-### Works in Preview But Not Live
-
-**Symptoms:** Functions in Qualtrics preview mode but fails in live survey.
-
-**Solutions:**
-- Check if participants are using incompatible browsers (try Chrome/Edge)
-- Verify camera permissions are granted
-- Some participants may have webcam blocked by security software
-
----
-
 ## Browser Compatibility
 
 | Browser | Support | Notes |
@@ -302,13 +248,6 @@ Qualtrics Survey (with CSP restrictions)
   └─ JavaScript Listener (receives data via postMessage)
       └─ Saves to Embedded Data
 ```
-
-### Why CSP Matters
-
-- Qualtrics blocks `unsafe-eval` in Content Security Policy
-- WebGazer uses `new Function()` and `eval()` for regression models
-- Running in iframe = different origin = different CSP context
-- postMessage = secure cross-origin communication
 
 ### Security & Privacy
 
