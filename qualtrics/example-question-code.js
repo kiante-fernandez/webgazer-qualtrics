@@ -120,14 +120,19 @@ Qualtrics.SurveyEngine.addOnload(function() {
   // Wait for tracking-ready message from iframe
   const trackingReadyListener = function(event) {
     if (event.data.type === 'tracking-ready') {
-      console.log('[Q' + questionId.substring(1) + '] Tracking ready, starting...');
+      console.log('[Q' + questionId.substring(1) + '] 📡 Tracking ready message received');
 
-      // Start tracking for this question
-      iframe.contentWindow.postMessage({
-        type: 'start-tracking',
-        questionId: questionId,
-        questionStartTime: trackingStartTime
-      }, '*');
+      // Add delay to ensure iframe is ready to receive messages
+      setTimeout(function() {
+        console.log('[Q' + questionId.substring(1) + '] ▶️ Sending start-tracking command');
+
+        // Start tracking for this question
+        iframe.contentWindow.postMessage({
+          type: 'start-tracking',
+          questionId: questionId,
+          questionStartTime: trackingStartTime
+        }, '*');
+      }, 200); // 200ms delay
 
       // Remove this one-time listener
       window.removeEventListener('message', trackingReadyListener);
@@ -150,6 +155,11 @@ Qualtrics.SurveyEngine.addOnload(function() {
   // Listen for gaze data from tracking iframe
   const gazeListener = function(event) {
     if (event.data.type === 'gaze-data') {
+      // Log first data point to confirm tracking is working
+      if (gazeData.length === 0) {
+        console.log('[Q' + questionId.substring(1) + '] ✅ First gaze data received:', event.data);
+      }
+
       gazeData.push({
         t: Math.round(event.data.timestamp - trackingStartTime),
         x: Math.round(event.data.x),
@@ -165,6 +175,8 @@ Qualtrics.SurveyEngine.addOnload(function() {
 
 Qualtrics.SurveyEngine.addOnPageSubmit(function() {
   const questionId = 'Q2';  // ← UPDATE THIS TO MATCH ABOVE
+
+  console.log('[Q' + questionId.substring(1) + '] 💾 Saving gaze data. Sample count:', this.gazeData ? this.gazeData.length : 0);
 
   const trackingIframe = document.getElementById('calibration-iframe');
 
@@ -184,6 +196,9 @@ Qualtrics.SurveyEngine.addOnPageSubmit(function() {
   // Save gaze data to embedded data (compressed format)
   const gazeDataArray = this.gazeData || [];
   const compressed = gazeDataArray.map(d => `${d.t},${d.x},${d.y}`).join('|');
+
+  console.log('[Q' + questionId.substring(1) + '] 💾 Compressed data length:', compressed.length, 'bytes');
+
   Qualtrics.SurveyEngine.setEmbeddedData('gaze_' + questionId, compressed);
 });
 */
@@ -315,14 +330,19 @@ Qualtrics.SurveyEngine.addOnload(function() {
   // Wait for tracking-ready message from iframe
   const trackingReadyListener = function(event) {
     if (event.data.type === 'tracking-ready') {
-      console.log('[Q' + questionId.substring(1) + '] Tracking ready, starting...');
+      console.log('[Q' + questionId.substring(1) + '] 📡 Tracking ready message received');
 
-      // Start tracking for this question (tracks during prompt and recalibration)
-      iframe.contentWindow.postMessage({
-        type: 'start-tracking',
-        questionId: questionId,
-        questionStartTime: trackingStartTime
-      }, '*');
+      // Add delay to ensure iframe is ready to receive messages
+      setTimeout(function() {
+        console.log('[Q' + questionId.substring(1) + '] ▶️ Sending start-tracking command');
+
+        // Start tracking for this question (tracks during prompt and recalibration)
+        iframe.contentWindow.postMessage({
+          type: 'start-tracking',
+          questionId: questionId,
+          questionStartTime: trackingStartTime
+        }, '*');
+      }, 200); // 200ms delay
 
       // Remove this one-time listener
       window.removeEventListener('message', trackingReadyListener);
@@ -345,6 +365,11 @@ Qualtrics.SurveyEngine.addOnload(function() {
   // Listen for gaze data
   const gazeListener = function(event) {
     if (event.data.type === 'gaze-data') {
+      // Log first data point to confirm tracking is working
+      if (gazeData.length === 0) {
+        console.log('[Q' + questionId.substring(1) + '] ✅ First gaze data received:', event.data);
+      }
+
       gazeData.push({
         t: Math.round(event.data.timestamp - trackingStartTime),
         x: Math.round(event.data.x),
@@ -360,6 +385,8 @@ Qualtrics.SurveyEngine.addOnload(function() {
 
 Qualtrics.SurveyEngine.addOnPageSubmit(function() {
   const questionId = 'Q10';  // ← UPDATE THIS TO MATCH ABOVE
+
+  console.log('[Q' + questionId.substring(1) + '] 💾 Saving gaze data. Sample count:', this.gazeData ? this.gazeData.length : 0);
 
   const trackingIframe = document.getElementById('calibration-iframe');
 
@@ -379,6 +406,9 @@ Qualtrics.SurveyEngine.addOnPageSubmit(function() {
   // Save gaze data
   const gazeDataArray = this.gazeData || [];
   const compressed = gazeDataArray.map(d => `${d.t},${d.x},${d.y}`).join('|');
+
+  console.log('[Q' + questionId.substring(1) + '] 💾 Compressed data length:', compressed.length, 'bytes');
+
   Qualtrics.SurveyEngine.setEmbeddedData('gaze_' + questionId, compressed);
 });
 */
