@@ -199,28 +199,13 @@ Qualtrics.SurveyEngine.addOnload(function() {
   let gazeData = [];
   let trackingStartTime = performance.now();
 
-  // Wait for tracking-ready message from iframe
-  const trackingReadyListener = function(event) {
-    if (event.data.type === 'tracking-ready') {
-      console.log('[Q' + questionId.substring(1) + '] 📡 Tracking ready message received');
-
-      // Add delay to ensure iframe is ready to receive messages
-      setTimeout(function() {
-        console.log('[Q' + questionId.substring(1) + '] ▶️ Sending start-tracking command');
-
-        // Start tracking for this question
-        iframe.contentWindow.postMessage({
-          type: 'start-tracking',
-          questionId: questionId,
-          questionStartTime: trackingStartTime
-        }, '*');
-      }, 200); // 200ms delay
-
-      // Remove this one-time listener
-      window.removeEventListener('message', trackingReadyListener);
-    }
-  };
-  window.addEventListener('message', trackingReadyListener);
+  // Iframe is already in tracking mode (from Q1), so start tracking immediately
+  console.log('[Q' + questionId.substring(1) + '] ▶️ Sending start-tracking command');
+  iframe.contentWindow.postMessage({
+    type: 'start-tracking',
+    questionId: questionId,
+    questionStartTime: trackingStartTime
+  }, '*');
 
   // Send viewport updates for coordinate transformation (handles scrolling)
   const viewportInterval = setInterval(function() {
@@ -286,8 +271,8 @@ Qualtrics.SurveyEngine.addOnPageSubmit(function() {
 ```
 
 4. **Update the `questionId` variable** in TWO places:
-   - Line 189: `const questionId = 'Q2';` → Change to your question number
-   - Line 238: `const questionId = 'Q2';` → Change to match
+   - Line 190: `const questionId = 'Q2';` → Change to your question number
+   - Line 227: `const questionId = 'Q2';` → Change to match
 5. Save the question
 
 **Repeat for all tracked questions**: Q2, Q3, Q4, Q5, Q6, Q7, Q8, Q9, Q11, Q12, etc. (skip Q10 for now)
@@ -378,28 +363,14 @@ Qualtrics.SurveyEngine.addOnload(function() {
   let gazeData = [];
   let trackingStartTime = performance.now();
 
-  // Wait for tracking-ready message from iframe
-  const trackingReadyListener = function(event) {
-    if (event.data.type === 'tracking-ready') {
-      console.log('[Q' + questionId.substring(1) + '] 📡 Tracking ready message received');
-
-      // Add delay to ensure iframe is ready to receive messages
-      setTimeout(function() {
-        console.log('[Q' + questionId.substring(1) + '] ▶️ Sending start-tracking command');
-
-        // Start tracking for this question (tracks during prompt and recalibration)
-        iframe.contentWindow.postMessage({
-          type: 'start-tracking',
-          questionId: questionId,
-          questionStartTime: trackingStartTime
-        }, '*');
-      }, 200); // 200ms delay
-
-      // Remove this one-time listener
-      window.removeEventListener('message', trackingReadyListener);
-    }
-  };
-  window.addEventListener('message', trackingReadyListener);
+  // Iframe is already in tracking mode, so start tracking immediately
+  // (tracks during prompt and recalibration)
+  console.log('[Q' + questionId.substring(1) + '] ▶️ Sending start-tracking command');
+  iframe.contentWindow.postMessage({
+    type: 'start-tracking',
+    questionId: questionId,
+    questionStartTime: trackingStartTime
+  }, '*');
 
   // Send viewport updates
   const viewportInterval = setInterval(function() {
@@ -460,9 +431,9 @@ Qualtrics.SurveyEngine.addOnPageSubmit(function() {
 ```
 
 6. **Update question IDs** in THREE places:
-   - HTML: `'recalibrated_at_Q10'` (line 352)
-   - JavaScript: `const questionId = 'Q10';` (line 368)
-   - JavaScript: `const questionId = 'Q10';` (line 448)
+   - HTML: `'recalibrated_at_Q10'` (line 337)
+   - JavaScript: `const questionId = 'Q10';` (line 354)
+   - JavaScript: `const questionId = 'Q10';` (line 421)
 7. Save the question
 
 **Repeat for Q20, Q30, Q40** if your survey has 20+ questions.

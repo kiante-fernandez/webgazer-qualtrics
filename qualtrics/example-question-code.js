@@ -150,28 +150,13 @@ Qualtrics.SurveyEngine.addOnload(function() {
   let gazeData = [];
   let trackingStartTime = performance.now();
 
-  // Wait for tracking-ready message from iframe
-  const trackingReadyListener = function(event) {
-    if (event.data.type === 'tracking-ready') {
-      console.log('[Q' + questionId.substring(1) + '] 📡 Tracking ready message received');
-
-      // Add delay to ensure iframe is ready to receive messages
-      setTimeout(function() {
-        console.log('[Q' + questionId.substring(1) + '] ▶️ Sending start-tracking command');
-
-        // Start tracking for this question
-        iframe.contentWindow.postMessage({
-          type: 'start-tracking',
-          questionId: questionId,
-          questionStartTime: trackingStartTime
-        }, '*');
-      }, 200); // 200ms delay
-
-      // Remove this one-time listener
-      window.removeEventListener('message', trackingReadyListener);
-    }
-  };
-  window.addEventListener('message', trackingReadyListener);
+  // Iframe is already in tracking mode (from Q1), so start tracking immediately
+  console.log('[Q' + questionId.substring(1) + '] ▶️ Sending start-tracking command');
+  iframe.contentWindow.postMessage({
+    type: 'start-tracking',
+    questionId: questionId,
+    questionStartTime: trackingStartTime
+  }, '*');
 
   // Send viewport updates for coordinate transformation (handles scrolling)
   const viewportInterval = setInterval(function() {
@@ -352,28 +337,14 @@ Qualtrics.SurveyEngine.addOnload(function() {
   let gazeData = [];
   let trackingStartTime = performance.now();
 
-  // Wait for tracking-ready message from iframe
-  const trackingReadyListener = function(event) {
-    if (event.data.type === 'tracking-ready') {
-      console.log('[Q' + questionId.substring(1) + '] 📡 Tracking ready message received');
-
-      // Add delay to ensure iframe is ready to receive messages
-      setTimeout(function() {
-        console.log('[Q' + questionId.substring(1) + '] ▶️ Sending start-tracking command');
-
-        // Start tracking for this question (tracks during prompt and recalibration)
-        iframe.contentWindow.postMessage({
-          type: 'start-tracking',
-          questionId: questionId,
-          questionStartTime: trackingStartTime
-        }, '*');
-      }, 200); // 200ms delay
-
-      // Remove this one-time listener
-      window.removeEventListener('message', trackingReadyListener);
-    }
-  };
-  window.addEventListener('message', trackingReadyListener);
+  // Iframe is already in tracking mode, so start tracking immediately
+  // (tracks during prompt and recalibration)
+  console.log('[Q' + questionId.substring(1) + '] ▶️ Sending start-tracking command');
+  iframe.contentWindow.postMessage({
+    type: 'start-tracking',
+    questionId: questionId,
+    questionStartTime: trackingStartTime
+  }, '*');
 
   // Send viewport updates
   const viewportInterval = setInterval(function() {
