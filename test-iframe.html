@@ -69,25 +69,6 @@
       color: #155724;
       border-left: 4px solid #28a745;
     }
-    .variant-selector {
-      margin: 20px 0;
-    }
-    .variant-selector button {
-      background: #3498db;
-      color: white;
-      border: none;
-      padding: 10px 20px;
-      margin-right: 10px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 14px;
-    }
-    .variant-selector button:hover {
-      background: #2980b9;
-    }
-    .variant-selector button.active {
-      background: #28a745;
-    }
     #NextButton {
       background: #28a745;
       color: white;
@@ -101,153 +82,132 @@
     #NextButton:hover {
       background: #218838;
     }
+    .data-field {
+      margin-bottom: 15px;
+      padding: 10px;
+      background: white;
+      border-radius: 4px;
+      border-left: 3px solid #3498db;
+    }
+    .data-field strong {
+      display: block;
+      margin-bottom: 5px;
+      color: #2c3e50;
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>🧪 Iframe Integration Test (Simulates Qualtrics)</h1>
+    <h1>Test Iframe Integration (Simulates Qualtrics)</h1>
 
     <div class="test-section">
       <h2>Instructions</h2>
       <ol>
-        <li>Select an experiment variant below</li>
         <li>Grant camera permission when prompted</li>
         <li>Complete the calibration and validation</li>
+        <li>Choose whether to recalibrate if prompted</li>
         <li>Watch for the "Data Received" message below</li>
         <li>The "Next" button should appear automatically (simulating Qualtrics auto-advance)</li>
       </ol>
     </div>
 
-    <div class="variant-selector">
-      <strong>Choose Experiment Variant:</strong><br><br>
-      <button onclick="loadExperiment('minimal')" class="active" id="btn-minimal">Minimal (~30 sec)</button>
-      <button onclick="loadExperiment('standard')" id="btn-standard">Standard (~2 min)</button>
-      <button onclick="loadExperiment('full')" id="btn-full">Full (~5 min)</button>
-    </div>
-
     <div id="status-message" class="status waiting">
-      ⏳ Waiting for eye tracking data...
+      Waiting for calibration data...
     </div>
 
     <div class="test-section">
-      <h2>Eye Tracking Experiment</h2>
+      <h2>Eye Tracking Calibration</h2>
       <div class="iframe-container">
         <iframe
           id="eyetracking-iframe"
-          src="experiments/minimal.html"
+          src="experiments/calibration.html"
           allow="camera; microphone">
         </iframe>
       </div>
     </div>
 
     <div class="data-output" id="data-output" style="display: none;">
-      <h3>✓ Data Received via postMessage!</h3>
+      <h3>Data Received via postMessage</h3>
       <p><strong>This simulates data being saved to Qualtrics embedded data.</strong></p>
 
       <h4>Embedded Data Fields:</h4>
-      <p><code>eyetracking_validation:</code></p>
-      <pre id="validation-data"></pre>
 
-      <p><code>eyetracking_average_offset:</code> <span id="average-offset" style="font-size: 18px; font-weight: bold;"></span> pixels</p>
+      <div class="data-field">
+        <strong>eyetracking_offset:</strong>
+        <span id="average-offset" style="font-size: 18px; font-weight: bold;"></span> pixels
+      </div>
+
+      <div class="data-field">
+        <strong>eyetracking_recalibrated:</strong>
+        <span id="recalibrated" style="font-size: 18px; font-weight: bold;"></span>
+      </div>
+
+      <div class="data-field">
+        <strong>eyetracking_attempts:</strong>
+        <span id="attempts" style="font-size: 18px; font-weight: bold;"></span>
+      </div>
+
+      <div class="data-field">
+        <strong>eyetracking_validation:</strong>
+        <pre id="validation-data" style="margin: 10px 0 0 0;"></pre>
+      </div>
 
       <h4>Full postMessage Event:</h4>
       <pre id="full-data"></pre>
     </div>
 
-    <button id="NextButton" style="display: none;">Next Question (Auto-clicked after 1 second) →</button>
+    <button id="NextButton" style="display: none;">Next Question (Auto-clicked after 1 second)</button>
   </div>
 
   <script>
-    let currentVariant = 'minimal';
-
-    function loadExperiment(variant) {
-      currentVariant = variant;
-      const iframe = document.getElementById('eyetracking-iframe');
-      iframe.src = 'experiments/' + variant + '.html';
-
-      // Reset UI
-      document.getElementById('status-message').className = 'status waiting';
-      document.getElementById('status-message').innerHTML = '⏳ Waiting for eye tracking data...';
-      document.getElementById('data-output').style.display = 'none';
-      document.getElementById('NextButton').style.display = 'none';
-
-      // Update button states
-      document.querySelectorAll('.variant-selector button').forEach(btn => {
-        btn.classList.remove('active');
-      });
-      document.getElementById('btn-' + variant).classList.add('active');
-
-      console.log('🔄 Loaded experiment:', variant);
-    }
-
     // Listen for postMessage from iframe (simulates Qualtrics listener)
     window.addEventListener('message', function(event) {
-      console.log('📨 Received postMessage:', event.data);
+      console.log('Received postMessage:', event.data);
 
-      if (event.data.type === 'eyetracking-complete') {
+      if (event.data.type === 'calibration-complete') {
         // Update status
         document.getElementById('status-message').className = 'status success';
-        document.getElementById('status-message').innerHTML = '✓ Eye tracking data received successfully!';
+        document.getElementById('status-message').innerHTML = 'Calibration data received successfully';
 
         // Show data output
         document.getElementById('data-output').style.display = 'block';
 
-        // Handle different data formats (minimal/standard vs full)
-        if (event.data.validation) {
-          // Minimal or Standard variant
-          const validation = event.data.validation;
+        // Simulate saving to Qualtrics embedded data
+        console.log('Saving to embedded data:', {
+          eyetracking_offset: event.data.average_offset,
+          eyetracking_recalibrated: event.data.recalibrated,
+          eyetracking_attempts: event.data.calibration_attempts,
+          eyetracking_validation: JSON.stringify(event.data.validation_data)
+        });
 
-          // Simulate saving to Qualtrics embedded data
-          console.log('💾 Saving to embedded data:', {
-            eyetracking_validation: JSON.stringify(validation),
-            eyetracking_average_offset: validation.average_offset
-          });
-
-          // Display the data
-          document.getElementById('validation-data').textContent = JSON.stringify(validation, null, 2);
-          document.getElementById('average-offset').textContent = Math.round(validation.average_offset);
-          document.getElementById('full-data').textContent = JSON.stringify(event.data, null, 2);
-
-        } else if (event.data.eyetracking_data) {
-          // Full variant (sends arrays)
-          console.log('💾 Saving to embedded data:', {
-            eyetracking_data: JSON.stringify(event.data.eyetracking_data),
-            calibration_data: JSON.stringify(event.data.calibration_data)
-          });
-
-          // Display the data
-          document.getElementById('validation-data').textContent = JSON.stringify(event.data.eyetracking_data, null, 2);
-
-          // Get average offset from the validation data
-          const validationData = event.data.eyetracking_data[event.data.eyetracking_data.length - 1];
-          if (validationData && validationData.average_offset) {
-            document.getElementById('average-offset').textContent = Math.round(validationData.average_offset);
-          } else {
-            document.getElementById('average-offset').textContent = 'N/A';
-          }
-
-          document.getElementById('full-data').textContent = JSON.stringify(event.data, null, 2);
-        }
+        // Display the data
+        document.getElementById('average-offset').textContent =
+          event.data.average_offset ? Math.round(event.data.average_offset) : 'Not available';
+        document.getElementById('recalibrated').textContent = event.data.recalibrated ? 'true' : 'false';
+        document.getElementById('attempts').textContent = event.data.calibration_attempts;
+        document.getElementById('validation-data').textContent =
+          event.data.validation_data ? JSON.stringify(event.data.validation_data, null, 2) : 'Not available';
+        document.getElementById('full-data').textContent = JSON.stringify(event.data, null, 2);
 
         // Simulate Qualtrics auto-advance (show Next button, then auto-click after 1 second)
         const nextButton = document.getElementById('NextButton');
         nextButton.style.display = 'inline-block';
 
         setTimeout(function() {
-          console.log('✓ Auto-clicking Next button (simulating Qualtrics)');
-          nextButton.textContent = 'Next Question (Clicked!) ✓';
+          console.log('Auto-clicking Next button (simulating Qualtrics)');
+          nextButton.textContent = 'Next Question (Clicked!)';
           nextButton.style.background = '#28a745';
 
           // In real Qualtrics, this would advance to the next question
           // Here we just show a message
           setTimeout(function() {
-            alert('✓ Test Complete!\n\nIn Qualtrics, this would advance to the next question.\n\nData successfully received and saved to embedded data.');
+            alert('Test Complete!\n\nIn Qualtrics, this would advance to the next question.\n\nData successfully received and saved to embedded data.');
           }, 500);
         }, 1000);
       }
     });
 
-    console.log('🧪 Test page loaded. Waiting for experiment to complete...');
+    console.log('Test page loaded. Waiting for calibration to complete...');
   </script>
 </body>
 </html>

@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eye Tracking Calibration</title>
+
+  <!-- jsPsych Core -->
+  <script src="https://unpkg.com/jspsych@8.2.2"></script>
+  <link rel="stylesheet" href="https://unpkg.com/jspsych@8.2.2/css/jspsych.css" />
+
+  <!-- WebGazer Library (jsPsych fork - required by extension) -->
+  <script src="https://cdn.jsdelivr.net/gh/jspsych/jspsych@jspsych@7.0.0/examples/js/webgazer/webgazer.js"></script>
+
+  <!-- jsPsych Plugins -->
+  <script src="https://unpkg.com/@jspsych/plugin-html-button-response@2.1.0"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-webgazer-init-camera@2.1.0"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-webgazer-calibrate@2.1.0"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-webgazer-validate@2.1.0"></script>
+
+  <!-- WebGazer Extension -->
+  <script src="https://unpkg.com/@jspsych/extension-webgazer@1.2.0"></script>
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #f0f0f0;
+    }
+  </style>
+</head>
+<body>
+  <div id="jspsych-target"></div>
+
+  <script>
+    var calibration_attempts = 0;
+    var final_validation_data = null;
+
+    // Initialize jsPsych with WebGazer extension
+    var jsPsych = initJsPsych({
+      extensions: [
+        { type: jsPsychExtensionWebgazer }
+      ],
+      on_finish: function(data) {
+        // Use the final_validation_data we captured during validation
+        var validation_data = final_validation_data;
+
+        // Send data to parent window (for iframe embedding in Qualtrics)
+        if (window.parent !== window) {
+          window.parent.postMessage({
+            type: 'calibration-complete',
+            average_offset: validation_data ? validation_data.average_offset : null,
+            recalibrated: calibration_attempts > 1,
+            calibration_attempts: calibration_attempts,
+            validation_data: validation_data
+          }, '*');
+          console.log('Sent calibration data to parent window');
+        } else {
+          // Standalone mode - display results
+          console.log('Calibration complete!');
+          console.log('Validation data:', validation_data);
+
+          var offset_text = validation_data && validation_data.average_offset !== undefined
+            ? Math.round(validation_data.average_offset) + ' pixels'
+            : 'Not available';
+
+          document.querySelector('#jspsych-target').innerHTML =
+            '<div style="text-align: center; padding: 50px; font-family: sans-serif;">' +
+            '<h2>Calibration Complete!</h2>' +
+            '<p>Average offset: ' + offset_text + '</p>' +
+            '<p>Calibration attempts: ' + calibration_attempts + '</p>' +
+            '<p style="color: #666; font-size: 14px;">Check console for full data</p>' +
+            '</div>';
+        }
+      }
+    });
+
+    var timeline = [];
+
+    // Welcome and instructions
+    timeline.push({
+      type: jsPsychHtmlButtonResponse,
+      stimulus: `
+        <div style="text-align: center; padding: 20px; max-width: 600px; margin: 0 auto;">
+          <h2>Eye Tracking Calibration</h2>
+          <p>This study requires eye tracking to verify human participation.</p>
+          <p>You will see dots appear on the screen. Please:</p>
+          <ul style="text-align: left; margin: 20px auto; display: inline-block;">
+            <li>Look directly at each dot</li>
+            <li>Click on it while looking at it</li>
+          </ul>
+          <p>After calibration, we will validate the accuracy.</p>
+        </div>
+      `,
+      choices: ['Start Calibration']
+    });
+
+    // Initialize camera
+    timeline.push({
+      type: jsPsychWebgazerInitCamera
+    });
+
+    // Function to create calibration sequence
+    function create_calibration_sequence() {
+      var sequence = [];
+
+      // Calibration instructions
+      sequence.push({
+        type: jsPsychHtmlButtonResponse,
+        stimulus: `
+          <div style="text-align: center; padding: 20px;">
+            <h3>Calibration Phase</h3>
+            <p>Click on each dot while looking directly at it.</p>
+            <p>Keep your head still.</p>
+          </div>
+        `,
+        choices: ['Begin Calibration']
+      });
+
+      // Calibration
+      sequence.push({
+        type: jsPsychWebgazerCalibrate,
+        calibration_points: [
+          [25, 25], [75, 25], [50, 50], [25, 75], [75, 75]
+        ],
+        repetitions_per_point: 2,
+        calibration_mode: 'click',
+        on_finish: function() {
+          calibration_attempts++;
+        }
+      });
+
+      // Validation instructions
+      sequence.push({
+        type: jsPsychHtmlButtonResponse,
+        stimulus: `
+          <div style="text-align: center; padding: 20px;">
+            <h3>Validation Phase</h3>
+            <p>Now we will test the accuracy.</p>
+            <p>Look at each dot (DO NOT click).</p>
+            <p>Follow the dots with your eyes only.</p>
+          </div>
+        `,
+        choices: ['Begin Validation']
+      });
+
+      // Validation
+      sequence.push({
+        type: jsPsychWebgazerValidate,
+        validation_points: [
+          [25, 25], [75, 25], [50, 50], [25, 75], [75, 75]
+        ],
+        show_validation_data: true,
+        on_finish: function(data) {
+          final_validation_data = data;
+        }
+      });
+
+      return sequence;
+    }
+
+    // Add first calibration sequence
+    timeline = timeline.concat(create_calibration_sequence());
+
+    // Conditional recalibration offer (only if accuracy poor and first attempt)
+    var recalibration_offer = {
+      timeline: [
+        {
+          type: jsPsychHtmlButtonResponse,
+          stimulus: `
+            <div style="text-align: center; padding: 20px;">
+              <h3>Calibration Accuracy</h3>
+              <p>The calibration accuracy could be improved.</p>
+              <p>Would you like to recalibrate?</p>
+            </div>
+          `,
+          choices: ['Yes, Recalibrate', 'No, Continue to Survey']
+        }
+      ],
+      conditional_function: function() {
+        // Only offer if first attempt and accuracy is poor
+        return calibration_attempts === 1 && final_validation_data.average_offset > 200;
+      }
+    };
+    timeline.push(recalibration_offer);
+
+    // Conditional recalibration sequence (if user chose to recalibrate)
+    var recalibration_sequence = {
+      timeline: create_calibration_sequence(),
+      conditional_function: function() {
+        var last_response = jsPsych.data.get().last(1).values()[0];
+        // Check if they chose to recalibrate (button 0 = "Yes")
+        return last_response.response === 0;
+      }
+    };
+    timeline.push(recalibration_sequence);
+
+    // Completion message
+    timeline.push({
+      type: jsPsychHtmlButtonResponse,
+      stimulus: `
+        <div style="text-align: center; padding: 20px;">
+          <h3>Calibration Complete!</h3>
+          <p>Proceeding to survey...</p>
+        </div>
+      `,
+      choices: [],
+      trial_duration: 2000
+    });
+
+    // Run experiment
+    jsPsych.run(timeline);
+  </script>
+</body>
+</html>

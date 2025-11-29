@@ -1,12 +1,12 @@
 # WebGazer for Qualtrics
 
-Add webcam-based eye tracking to your Qualtrics surveys using [jsPsych](https://www.jspsych.org/) and [WebGazer.js](https://webgazer.cs.brown.edu/).
+Add webcam-based eye tracking calibration to your Qualtrics surveys using [jsPsych](https://www.jspsych.org/) and [WebGazer.js](https://webgazer.cs.brown.edu/).
 
 **Live Demo:** [https://kiante-fernandez.github.io/webgazer-qualtrics/](https://kiante-fernandez.github.io/webgazer-qualtrics/)
 
 ## Quick Start
 
-Add eye tracking to your Qualtrics survey in 3 steps:
+Add eye tracking calibration to your Qualtrics survey in 3 steps:
 
 ### 1. Create a Text/Graphic Question
 
@@ -19,7 +19,7 @@ Switch to **HTML view** (`<>` button) and paste this code:
 ```html
 <div style="width: 100%; height: 800px;">
   <iframe
-    src="https://kiante-fernandez.github.io/webgazer-qualtrics/experiments/minimal.html"
+    src="https://kiante-fernandez.github.io/webgazer-qualtrics/experiments/calibration.html"
     width="100%"
     height="800px"
     allow="camera; microphone"
@@ -29,9 +29,11 @@ Switch to **HTML view** (`<>` button) and paste this code:
 
 <script>
   window.addEventListener('message', function(event) {
-    if (event.data.type === 'eyetracking-complete') {
-      Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_validation', JSON.stringify(event.data.validation));
-      Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_average_offset', event.data.validation.average_offset);
+    if (event.data.type === 'calibration-complete') {
+      Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_offset', event.data.average_offset);
+      Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_recalibrated', event.data.recalibrated);
+      Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_attempts', event.data.calibration_attempts);
+      Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_validation', JSON.stringify(event.data.validation_data));
       setTimeout(() => document.querySelector('#NextButton').click(), 1000);
     }
   });
@@ -44,34 +46,21 @@ Switch to **HTML view** (`<>` button) and paste this code:
 
 ### 3. Done!
 
-The eye tracker will calibrate automatically, and validation data will be saved to Qualtrics embedded data. That's it!
+The eye tracker will calibrate automatically, and calibration data will be saved to Qualtrics embedded data. All participants continue to the survey regardless of calibration quality.
 
-For detailed instructions and different experiment variants, see the [Qualtrics Integration Guide](qualtrics/).
+For detailed instructions, see the [Qualtrics Integration Guide](qualtrics/).
 
 ---
 
 ## Features
 
-- ✅ **No Setup Required** - Uses hosted experiments, just copy-paste the iframe code
-- ✅ **Three Variants** - Choose minimal (30s), standard (2min), or full (5min) based on your needs
-- ✅ **Automatic Data Saving** - Validation data automatically saves to Qualtrics embedded data
-- ✅ **Auto-Advance** - Moves to next question automatically when calibration completes
-- ✅ **jsPsych Powered** - Built with the leading behavioral experiment framework
-- ✅ **Open Source** - MIT licensed, fork and customize as needed
-
----
-
-## Experiment Variants
-
-Three pre-built experiments to choose from:
-
-| Variant | Duration | Features | Best For |
-|---------|----------|----------|----------|
-| **[Minimal](experiments/minimal.html)** | ~30 sec | Camera init → Calibration → Validation | Experienced participants, quick setup |
-| **[Standard](experiments/standard.html)** | ~2 min | Welcome → Instructions → Calibration → Validation | Most users, first-time participants |
-| **[Full](experiments/full.html)** | ~5 min | Full instructions → Calibration → Validation → Recalibration option → Example trial | Research requiring high accuracy |
-
-[Try the demos →](https://kiante-fernandez.github.io/webgazer-qualtrics/)
+- **No Setup Required** - Uses hosted experiment, just copy-paste the iframe code
+- **Calibration Data Collection** - Records calibration quality without blocking participants
+- **Optional Recalibration** - Offers one recalibration attempt if initial accuracy is low (offset > 200px)
+- **Automatic Data Saving** - Calibration data automatically saves to Qualtrics embedded data
+- **Auto-Advance** - Moves to next question automatically when calibration completes
+- **jsPsych Powered** - Built with the leading behavioral experiment framework
+- **Open Source** - MIT licensed, fork and customize as needed
 
 ---
 
@@ -102,7 +91,16 @@ Participant → Camera → WebGazer (in iframe) → jsPsych → postMessage → 
 
 ### What Data You Get
 
-The validation data is saved as a JSON object in the `eyetracking_validation` embedded data field:
+The calibration saves the following to Qualtrics embedded data:
+
+- **`eyetracking_offset`** - Average offset in pixels (accuracy metric)
+- **`eyetracking_recalibrated`** - Whether user chose to recalibrate (true/false)
+- **`eyetracking_attempts`** - Number of calibration attempts (1 or 2)
+- **`eyetracking_validation`** - Full validation data (JSON)
+
+### Validation Data Structure
+
+The `eyetracking_validation` field contains a JSON object:
 
 ```json
 {
@@ -116,40 +114,46 @@ The validation data is saved as a JSON object in the `eyetracking_validation` em
 
 ### Key Metrics
 
-- **`average_offset`** - Average distance in pixels between predicted gaze and target points
+- **`eyetracking_offset`** (also `average_offset` in validation data) - Average distance in pixels between predicted gaze and target points
   - Lower = better accuracy
   - Typical range: 50-200 pixels
-  - Use for quality control (filter responses with offset > 250px)
+  - If > 200px, user is offered optional recalibration
+  - Use for quality control in analysis
+
+- **`eyetracking_recalibrated`** - Indicates whether participant chose to recalibrate
+  - Useful for understanding data quality improvements
+
+- **`eyetracking_attempts`** - Number of calibration attempts
+  - 1 = accepted initial calibration
+  - 2 = chose to recalibrate
 
 - **`percent_in_roi`** - Percentage of predictions within region of interest per validation point
   - Array of 5 values (one per validation point)
   - Higher = better accuracy
 
-- **`raw_gaze`** - All raw gaze coordinate pairs `[x, y]` during validation
-  - Useful for detailed analysis
-
 ### Accessing Data
 
 **In Qualtrics:**
 1. Go to **Survey Flow** → Add **Embedded Data** element
-2. Create fields: `eyetracking_validation`, `eyetracking_average_offset`
+2. Create fields: `eyetracking_offset`, `eyetracking_recalibrated`, `eyetracking_attempts`, `eyetracking_validation`
 3. Place at the **top** of the survey flow
 4. Data will appear in your exported responses
 
 **In Exports:**
 - Download data as CSV/JSON
 - Parse the `eyetracking_validation` field (it's a JSON string)
-- Use `eyetracking_average_offset` for quick filtering
+- Use `eyetracking_offset` for quick filtering
+- Use `eyetracking_recalibrated` and `eyetracking_attempts` to understand calibration quality
 
 ---
 
 ## Installation
 
-### Option A: Use Hosted Experiments (Recommended)
+### Option A: Use Hosted Experiment (Recommended)
 
 Just copy-paste the iframe code from the [Quick Start](#quick-start) section. No installation needed!
 
-The experiments are hosted at: `https://kiante-fernandez.github.io/webgazer-qualtrics/experiments/`
+The experiment is hosted at: `https://kiante-fernandez.github.io/webgazer-qualtrics/experiments/calibration.html`
 
 ### Option B: Self-Host (Advanced)
 
@@ -160,9 +164,9 @@ If you need custom modifications:
    git clone https://github.com/kiante-fernandez/webgazer-qualtrics.git
    ```
 
-2. **Modify experiment files** in `experiments/` folder
-   - Edit HTML to customize calibration points, instructions, etc.
-   - All experiments use CDN-based dependencies (no build step)
+2. **Modify experiment file** at `experiments/calibration.html`
+   - Customize calibration points, instructions, etc.
+   - Uses CDN-based dependencies (no build step)
 
 3. **Enable GitHub Pages** in your fork
    - Settings → Pages → Source: Deploy from main branch
@@ -175,21 +179,6 @@ If you need custom modifications:
 ---
 
 ## Customization
-
-### Change Experiment Variant
-
-Edit the iframe `src` attribute to use a different variant:
-
-```html
-<!-- Minimal -->
-<iframe src="https://kiante-fernandez.github.io/webgazer-qualtrics/experiments/minimal.html" ...>
-
-<!-- Standard -->
-<iframe src="https://kiante-fernandez.github.io/webgazer-qualtrics/experiments/standard.html" ...>
-
-<!-- Full -->
-<iframe src="https://kiante-fernandez.github.io/webgazer-qualtrics/experiments/full.html" ...>
-```
 
 ### Disable Auto-Advance
 
@@ -218,17 +207,18 @@ Change `height` in both the `<div>` and `<iframe>` tags:
 
 ### Custom Calibration Points
 
-Fork the repository and edit the experiment HTML files:
+Fork the repository and edit `experiments/calibration.html`:
 
 ```javascript
-// In experiments/minimal.html (or standard.html, full.html)
-timeline.push({
+// In the create_calibration_sequence() function
+sequence.push({
   type: jsPsychWebgazerCalibrate,
   calibration_points: [
     [10, 10], [50, 50], [90, 90],  // Your custom points
     [10, 90], [90, 10]
   ],
-  repetitions_per_point: 3  // More reps = better accuracy
+  repetitions_per_point: 3,  // More reps = better accuracy
+  calibration_mode: 'click'
 });
 ```
 
@@ -249,15 +239,15 @@ Calibration points are in **percentage coordinates**: `[25, 25]` = 25% from left
 
 ### Poor Calibration Accuracy
 
-**Symptoms:** `average_offset` > 300 pixels consistently.
+**Symptoms:** `eyetracking_offset` > 300 pixels consistently.
 
 **Solutions:**
-- Use the **Full** variant (allows recalibration)
+- If offset > 200px, participants are offered optional recalibration
 - Add instructions emphasizing:
   - Good lighting on face
   - Stay still during calibration
   - Look directly at each dot
-- Filter out low-quality responses in analysis
+- Filter out low-quality responses in analysis using `eyetracking_offset` field
 
 ### Iframe Not Displaying
 
@@ -275,7 +265,7 @@ Calibration points are in **percentage coordinates**: `[25, 25]` = 25% from left
 
 **Solutions:**
 - Create embedded data fields in **Survey Flow** (before the eye tracking question)
-- Field names must match exactly: `eyetracking_validation`, `eyetracking_average_offset`
+- Field names must match exactly: `eyetracking_offset`, `eyetracking_recalibrated`, `eyetracking_attempts`, `eyetracking_validation`
 - Check browser console for JavaScript errors
 - Verify the postMessage listener code is included
 
@@ -386,16 +376,21 @@ Contributions welcome! Please:
 
 ## Changelog
 
-### v2.0.0 (Current)
-- Complete rewrite using iframe approach
-- Three experiment variants (minimal, standard, full)
+### v3.0.0 (Current)
+- Single calibration experiment with optional recalibration
+- Calibration data collection focus (no pass/fail logic)
+- All participants continue to survey regardless of accuracy
+- Optional recalibration if offset > 200px
 - jsPsych 8.2.2 integration
 - Automatic data saving via postMessage
-- Comprehensive documentation
+
+### v2.0.0 (Deprecated)
+- Three experiment variants (minimal, standard, full)
+- Iframe approach with postMessage
 
 ### v1.0.0 (Deprecated)
 - Header-based approach (does not work due to CSP)
 
 ---
 
-Made with ❤️ for behavioral researchers
+Made for behavioral researchers

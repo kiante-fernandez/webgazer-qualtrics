@@ -45,16 +45,6 @@
       margin-bottom: 20px;
     }
 
-    .badge {
-      display: inline-block;
-      background: #e8f5e9;
-      color: #2e7d32;
-      padding: 6px 12px;
-      border-radius: 4px;
-      font-size: 0.9em;
-      font-weight: 500;
-    }
-
     .section {
       background: white;
       padding: 30px;
@@ -86,58 +76,19 @@
       margin-bottom: 10px;
     }
 
-    .variants {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 20px;
-      margin-top: 20px;
-    }
-
-    .variant-card {
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      padding: 20px;
-      transition: all 0.3s ease;
-    }
-
-    .variant-card:hover {
-      box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-      transform: translateY(-2px);
-    }
-
-    .variant-card h3 {
-      color: #2c3e50;
-      margin-bottom: 10px;
-    }
-
-    .variant-card .duration {
-      display: inline-block;
-      background: #e3f2fd;
-      color: #1976d2;
-      padding: 4px 8px;
-      border-radius: 3px;
-      font-size: 0.85em;
-      margin-bottom: 10px;
-    }
-
-    .variant-card p {
-      color: #666;
-      font-size: 0.95em;
-      margin-bottom: 15px;
-    }
-
-    .variant-card a {
+    .demo-link {
       display: inline-block;
       background: #3498db;
       color: white;
-      padding: 8px 16px;
+      padding: 12px 24px;
       text-decoration: none;
       border-radius: 4px;
-      font-size: 0.9em;
+      font-size: 1.1em;
       transition: background 0.2s;
+      margin: 20px 0;
     }
 
-    .variant-card a:hover {
+    .demo-link:hover {
       background: #2980b9;
     }
 
@@ -183,57 +134,68 @@
       font-family: 'Courier New', monospace;
       font-size: 0.9em;
     }
+
+    .info-box {
+      background: #fff3cd;
+      padding: 20px;
+      border-radius: 6px;
+      border-left: 4px solid #ffc107;
+      margin: 20px 0;
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <header>
       <h1>WebGazer for Qualtrics</h1>
-      <p class="subtitle">Add eye tracking to your surveys in 3 easy steps</p>
-      <span class="badge">✓ No setup required</span>
-      <span class="badge">✓ Works via iframe</span>
-      <span class="badge">✓ jsPsych powered</span>
+      <p class="subtitle">Eye tracking calibration for survey research</p>
     </header>
 
     <div class="section quick-start">
       <h2>Quick Start</h2>
-      <p><strong>Get eye tracking running in your Qualtrics survey:</strong></p>
+      <p><strong>Add eye tracking calibration to your Qualtrics survey:</strong></p>
       <ol>
         <li>Create a <strong>Text/Graphic</strong> question in Qualtrics</li>
         <li>Switch to <strong>HTML view</strong> and paste the iframe code</li>
-        <li><strong>Done!</strong> Eye tracking data automatically saves to embedded data</li>
+        <li><strong>Done!</strong> Calibration data automatically saves to embedded data</li>
       </ol>
       <p style="margin-top: 15px;">
-        See the <a href="qualtrics/" style="color: #3498db;">Integration Guide</a> for complete copy-paste code snippets.
+        See the <a href="qualtrics/" style="color: #3498db;">Integration Guide</a> for complete copy-paste code.
       </p>
     </div>
 
     <div class="section">
-      <h2>Choose Your Experiment Variant</h2>
-      <p>Select the version that best fits your needs:</p>
+      <h2>Try the Demo</h2>
+      <p>Test the eye tracking calibration experiment:</p>
+      <a href="experiments/calibration.html" class="demo-link" target="_blank">Launch Demo</a>
+      <p style="margin-top: 15px; color: #666; font-size: 0.95em;">
+        The demo includes camera initialization, calibration, validation, and optional recalibration if accuracy is low.
+      </p>
+    </div>
 
-      <div class="variants">
-        <div class="variant-card">
-          <h3>Minimal</h3>
-          <span class="duration">~30 seconds</span>
-          <p>No instructions, just calibration and validation. Perfect for experienced participants or when you need quick setup.</p>
-          <a href="experiments/minimal.html" target="_blank">Try Demo →</a>
-        </div>
+    <div class="info-box">
+      <h2 style="border: none; margin-top: 0;">How It Works</h2>
+      <p>This tool uses an <strong>iframe approach</strong> to bypass Qualtrics Content Security Policy restrictions:</p>
+      <ul style="margin-left: 20px; margin-top: 10px;">
+        <li>Calibration experiment is hosted on GitHub Pages</li>
+        <li>Embedded in Qualtrics via iframe</li>
+        <li>Data sent back via postMessage and saved to embedded data</li>
+        <li>All participants continue regardless of calibration quality</li>
+      </ul>
+    </div>
 
-        <div class="variant-card">
-          <h3>Standard</h3>
-          <span class="duration">~2 minutes</span>
-          <p>Includes welcome screen and clear instructions. Recommended for most users and first-time participants.</p>
-          <a href="experiments/standard.html" target="_blank">Try Demo →</a>
-        </div>
-
-        <div class="variant-card">
-          <h3>Full</h3>
-          <span class="duration">~5 minutes</span>
-          <p>Complete experience with recalibration option and example trial. Best for research requiring high accuracy.</p>
-          <a href="experiments/full.html" target="_blank">Try Demo →</a>
-        </div>
-      </div>
+    <div class="section">
+      <h2>What Data Is Collected</h2>
+      <p>The calibration saves the following to Qualtrics embedded data:</p>
+      <ul style="margin-left: 20px; margin-top: 10px;">
+        <li><code>eyetracking_offset</code> - Average offset in pixels (accuracy metric)</li>
+        <li><code>eyetracking_recalibrated</code> - Whether user chose to recalibrate</li>
+        <li><code>eyetracking_attempts</code> - Number of calibration attempts (1 or 2)</li>
+        <li><code>eyetracking_validation</code> - Full validation data (JSON)</li>
+      </ul>
+      <p style="margin-top: 15px; color: #666;">
+        No blocking or pass/fail logic - all data is recorded for analysis.
+      </p>
     </div>
 
     <div class="section">
@@ -241,11 +203,11 @@
       <ul class="resources">
         <li>
           <a href="qualtrics/">Qualtrics Integration Guide</a>
-          <span style="color: #666; margin-left: 10px; font-size: 0.9em;">Copy-paste code for all variants</span>
+          <span style="color: #666; margin-left: 10px; font-size: 0.9em;">Copy-paste iframe code</span>
         </li>
         <li>
           <a href="README.md">README</a>
-          <span style="color: #666; margin-left: 10px; font-size: 0.9em;">Technical details and customization</span>
+          <span style="color: #666; margin-left: 10px; font-size: 0.9em;">Technical details and setup</span>
         </li>
         <li>
           <a href="https://github.com/kiante-fernandez/webgazer-qualtrics" target="_blank">GitHub Repository</a>
@@ -257,24 +219,11 @@
         </li>
       </ul>
     </div>
-
-    <div class="section" style="background: #fff3cd; border-left: 4px solid #ffc107;">
-      <h2 style="border-color: #ffc107;">Why Iframe Approach?</h2>
-      <p>Qualtrics enforces a Content Security Policy (CSP) that blocks <code>eval()</code> in JavaScript. WebGazer's eye tracking models require <code>eval()</code> to function.</p>
-      <p style="margin-top: 10px;">By hosting experiments externally (GitHub Pages) and embedding via iframe, we bypass these restrictions while keeping everything secure and easy to use.</p>
-      <p style="margin-top: 10px;"><strong>Benefits:</strong></p>
-      <ul style="margin-left: 20px; margin-top: 10px;">
-        <li>✓ Actually works in Qualtrics (header-based approaches fail)</li>
-        <li>✓ No hosting setup required - just copy-paste the code</li>
-        <li>✓ Centrally maintained and updated</li>
-        <li>✓ Easy to fork and customize if needed</li>
-      </ul>
-    </div>
   </div>
 
   <footer>
     <p>Built with <a href="https://www.jspsych.org/" target="_blank" style="color: #3498db;">jsPsych</a> and <a href="https://webgazer.cs.brown.edu/" target="_blank" style="color: #3498db;">WebGazer.js</a></p>
-    <p style="margin-top: 10px;">Licensed under MIT | <a href="https://github.com/kiante-fernandez/webgazer-qualtrics" target="_blank" style="color: #3498db;">View on GitHub</a></p>
+    <p style="margin-top: 10px;">Licensed under MIT</p>
   </footer>
 </body>
 </html>
