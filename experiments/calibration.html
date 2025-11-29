@@ -309,7 +309,17 @@
         webgazer.showFaceFeedbackBox(false);
 
         // Set up gaze listener for continuous streaming
+        var gazeCallbackCount = 0;
+        var gazeDataSentCount = 0;
+
         webgazer.setGazeListener(function(data, elapsedTime) {
+          gazeCallbackCount++;
+
+          // Log first few callbacks to verify listener is working
+          if (gazeCallbackCount <= 3) {
+            console.log('[Calibration] Gaze callback #' + gazeCallbackCount + ', isTracking:', isTracking, ', data:', data);
+          }
+
           if (!isTracking) {
             return;
           }
@@ -324,6 +334,12 @@
 
           if (now - lastSampleTime >= interval) {
             lastSampleTime = now;
+            gazeDataSentCount++;
+
+            // Log first data point sent
+            if (gazeDataSentCount === 1) {
+              console.log('[Calibration] Sending first gaze-data to parent:', data);
+            }
 
             // Transform coordinates: add scroll offset
             var transformedGaze = {
@@ -345,6 +361,10 @@
         });
 
         trackingMode = true;
+
+        // Ensure WebGazer is actively predicting
+        webgazer.resume();
+        console.log('[Calibration] WebGazer resumed, ready to track');
 
         // Wait a moment for WebGazer to fully initialize before notifying parent
         setTimeout(function() {
@@ -372,7 +392,10 @@
       switch(data.type) {
         case 'start-tracking':
           console.log('[Calibration] Starting tracking for question:', data.questionId);
+          console.log('[Calibration] WebGazer status - isReady:', webgazer.isReady());
           isTracking = true;
+          gazeCallbackCount = 0; // Reset counter for this question
+          gazeDataSentCount = 0;
           break;
 
         case 'pause-tracking':
