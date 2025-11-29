@@ -243,6 +243,37 @@
     jsPsych.run(timeline);
 
     // ========================================================================
+    // AUTO-DETECT TRACKING MODE (for Q2+ questions)
+    // ========================================================================
+    // If this iframe is loaded on a tracking question (Q2+), not a calibration question (Q1),
+    // we need to automatically enter tracking mode using saved calibration data
+
+    window.addEventListener('load', function() {
+      // Wait a moment for jsPsych to potentially start
+      setTimeout(function() {
+        // If tracking mode hasn't been activated yet, check if we should auto-enter it
+        if (!trackingMode) {
+          // Look for saved WebGazer calibration data in localStorage
+          var keys = Object.keys(localStorage);
+          var webgazerKeys = keys.filter(function(k) { return k.startsWith('webgazer'); });
+
+          if (webgazerKeys.length > 0) {
+            // We have saved calibration data, so we're on a tracking question
+            console.log('[Calibration] Auto-detected tracking mode (Q2+ question)');
+            console.log('[Calibration] Found saved calibration data in localStorage');
+
+            // Find the most recent model key
+            var modelKeys = keys.filter(function(k) { return k.startsWith('webgazer_model_'); });
+            var latestModelKey = modelKeys.sort().pop();
+
+            // Enter tracking mode
+            initTrackingMode(latestModelKey);
+          }
+        }
+      }, 1000);
+    });
+
+    // ========================================================================
     // TRACKING MODE - Activated after calibration completes
     // ========================================================================
 

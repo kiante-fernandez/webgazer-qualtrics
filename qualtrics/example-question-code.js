@@ -95,35 +95,57 @@
 // JAVASCRIPT CODE FOR STANDARD TRACKING QUESTIONS:
 /*
 Qualtrics.SurveyEngine.addOnload(function() {
-  // IMPORTANT: Change this to match your question number (Q2, Q3, Q4, etc.)
-  const questionId = 'Q2';  // UPDATE THIS FOR EACH QUESTION
+  // ⚠️ IMPORTANT: Change this to match your question number (Q2, Q3, Q4, etc.)
+  const questionId = 'Q2';  // ← UPDATE THIS FOR EACH QUESTION
+
+  // Create hidden tracking iframe (loads calibration from localStorage)
+  const iframe = document.createElement('iframe');
+  iframe.id = 'calibration-iframe';
+  iframe.src = 'https://kiante-fernandez.github.io/webgazer-qualtrics/experiments/calibration.html';
+  iframe.allow = 'camera; microphone';
+  iframe.style.position = 'fixed';
+  iframe.style.bottom = '0';
+  iframe.style.left = '0';
+  iframe.style.width = '1px';
+  iframe.style.height = '1px';
+  iframe.style.border = 'none';
+  iframe.style.visibility = 'hidden';
+  iframe.style.pointerEvents = 'none';
+  iframe.style.zIndex = '-1';
+  document.body.appendChild(iframe);
 
   let gazeData = [];
   let trackingStartTime = performance.now();
 
-  // Find the persistent calibration iframe (now in tracking mode)
-  const trackingIframe = document.getElementById('calibration-iframe');
+  // Wait for tracking-ready message from iframe
+  const trackingReadyListener = function(event) {
+    if (event.data.type === 'tracking-ready') {
+      console.log('[Q' + questionId.substring(1) + '] Tracking ready, starting...');
 
-  if (trackingIframe) {
-    // Start tracking for this question
-    trackingIframe.contentWindow.postMessage({
-      type: 'start-tracking',
-      questionId: questionId,
-      questionStartTime: trackingStartTime
-    }, '*');
+      // Start tracking for this question
+      iframe.contentWindow.postMessage({
+        type: 'start-tracking',
+        questionId: questionId,
+        questionStartTime: trackingStartTime
+      }, '*');
 
-    // Send viewport updates for coordinate transformation (handles scrolling)
-    const viewportInterval = setInterval(function() {
-      trackingIframe.contentWindow.postMessage({
+      // Remove this one-time listener
+      window.removeEventListener('message', trackingReadyListener);
+    }
+  };
+  window.addEventListener('message', trackingReadyListener);
+
+  // Send viewport updates for coordinate transformation (handles scrolling)
+  const viewportInterval = setInterval(function() {
+    if (iframe.contentWindow) {
+      iframe.contentWindow.postMessage({
         type: 'viewport-update',
         scrollX: window.scrollX,
         scrollY: window.scrollY
       }, '*');
-    }, 100);  // Update every 100ms
-
-    // Store interval ID for cleanup
-    this.viewportInterval = viewportInterval;
-  }
+    }
+  }, 100);
+  this.viewportInterval = viewportInterval;
 
   // Listen for gaze data from tracking iframe
   const gazeListener = function(event) {
@@ -136,17 +158,14 @@ Qualtrics.SurveyEngine.addOnload(function() {
     }
   };
   window.addEventListener('message', gazeListener);
-
-  // Store listener reference for cleanup
   this.gazeListener = gazeListener;
   this.gazeData = gazeData;
   this.trackingStartTime = trackingStartTime;
 });
 
 Qualtrics.SurveyEngine.addOnPageSubmit(function() {
-  const questionId = 'Q2';  // UPDATE THIS TO MATCH addOnload
+  const questionId = 'Q2';  // ← UPDATE THIS TO MATCH ABOVE
 
-  // Find the persistent calibration iframe
   const trackingIframe = document.getElementById('calibration-iframe');
 
   // Pause tracking during page transition
@@ -154,12 +173,10 @@ Qualtrics.SurveyEngine.addOnPageSubmit(function() {
     trackingIframe.contentWindow.postMessage({ type: 'pause-tracking' }, '*');
   }
 
-  // Clean up viewport updates
+  // Clean up
   if (this.viewportInterval) {
     clearInterval(this.viewportInterval);
   }
-
-  // Clean up event listener
   if (this.gazeListener) {
     window.removeEventListener('message', this.gazeListener);
   }
@@ -273,34 +290,57 @@ Qualtrics.SurveyEngine.addOnPageSubmit(function() {
 // JAVASCRIPT CODE FOR RECALIBRATION QUESTIONS:
 /*
 Qualtrics.SurveyEngine.addOnload(function() {
-  // IMPORTANT: Change this to match your question number (Q10, Q20, Q30, etc.)
-  const questionId = 'Q10';  // UPDATE THIS FOR EACH RECALIBRATION QUESTION
+  // ⚠️ IMPORTANT: Change this to match your question number (Q10, Q20, Q30, etc.)
+  const questionId = 'Q10';  // ← UPDATE THIS FOR EACH RECALIBRATION QUESTION
+
+  // Create hidden tracking iframe (loads calibration from localStorage)
+  const iframe = document.createElement('iframe');
+  iframe.id = 'calibration-iframe';
+  iframe.src = 'https://kiante-fernandez.github.io/webgazer-qualtrics/experiments/calibration.html';
+  iframe.allow = 'camera; microphone';
+  iframe.style.position = 'fixed';
+  iframe.style.bottom = '0';
+  iframe.style.left = '0';
+  iframe.style.width = '1px';
+  iframe.style.height = '1px';
+  iframe.style.border = 'none';
+  iframe.style.visibility = 'hidden';
+  iframe.style.pointerEvents = 'none';
+  iframe.style.zIndex = '-1';
+  document.body.appendChild(iframe);
 
   let gazeData = [];
   let trackingStartTime = performance.now();
 
-  // Find the persistent calibration iframe (now in tracking mode)
-  const trackingIframe = document.getElementById('calibration-iframe');
+  // Wait for tracking-ready message from iframe
+  const trackingReadyListener = function(event) {
+    if (event.data.type === 'tracking-ready') {
+      console.log('[Q' + questionId.substring(1) + '] Tracking ready, starting...');
 
-  if (trackingIframe) {
-    // Start tracking for this question (tracks during prompt and recalibration)
-    trackingIframe.contentWindow.postMessage({
-      type: 'start-tracking',
-      questionId: questionId,
-      questionStartTime: trackingStartTime
-    }, '*');
+      // Start tracking for this question (tracks during prompt and recalibration)
+      iframe.contentWindow.postMessage({
+        type: 'start-tracking',
+        questionId: questionId,
+        questionStartTime: trackingStartTime
+      }, '*');
 
-    // Send viewport updates
-    const viewportInterval = setInterval(function() {
-      trackingIframe.contentWindow.postMessage({
+      // Remove this one-time listener
+      window.removeEventListener('message', trackingReadyListener);
+    }
+  };
+  window.addEventListener('message', trackingReadyListener);
+
+  // Send viewport updates
+  const viewportInterval = setInterval(function() {
+    if (iframe.contentWindow) {
+      iframe.contentWindow.postMessage({
         type: 'viewport-update',
         scrollX: window.scrollX,
         scrollY: window.scrollY
       }, '*');
-    }, 100);
-
-    this.viewportInterval = viewportInterval;
-  }
+    }
+  }, 100);
+  this.viewportInterval = viewportInterval;
 
   // Listen for gaze data
   const gazeListener = function(event) {
@@ -319,9 +359,8 @@ Qualtrics.SurveyEngine.addOnload(function() {
 });
 
 Qualtrics.SurveyEngine.addOnPageSubmit(function() {
-  const questionId = 'Q10';  // UPDATE THIS TO MATCH addOnload
+  const questionId = 'Q10';  // ← UPDATE THIS TO MATCH ABOVE
 
-  // Find the persistent calibration iframe
   const trackingIframe = document.getElementById('calibration-iframe');
 
   // Pause tracking

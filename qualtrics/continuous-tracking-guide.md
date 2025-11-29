@@ -146,31 +146,54 @@ Qualtrics.SurveyEngine.addOnload(function() {
   // ⚠️ IMPORTANT: Change this to match your question number (Q2, Q3, Q4, etc.)
   const questionId = 'Q2';  // ← UPDATE THIS FOR EACH QUESTION
 
+  // Create hidden tracking iframe (loads calibration from localStorage)
+  const iframe = document.createElement('iframe');
+  iframe.id = 'calibration-iframe';
+  iframe.src = 'https://kiante-fernandez.github.io/webgazer-qualtrics/experiments/calibration.html';
+  iframe.allow = 'camera; microphone';
+  iframe.style.position = 'fixed';
+  iframe.style.bottom = '0';
+  iframe.style.left = '0';
+  iframe.style.width = '1px';
+  iframe.style.height = '1px';
+  iframe.style.border = 'none';
+  iframe.style.visibility = 'hidden';
+  iframe.style.pointerEvents = 'none';
+  iframe.style.zIndex = '-1';
+  document.body.appendChild(iframe);
+
   let gazeData = [];
   let trackingStartTime = performance.now();
 
-  // Find the persistent calibration iframe (now in tracking mode)
-  const trackingIframe = document.getElementById('calibration-iframe');
+  // Wait for tracking-ready message from iframe
+  const trackingReadyListener = function(event) {
+    if (event.data.type === 'tracking-ready') {
+      console.log('[Q' + questionId.substring(1) + '] Tracking ready, starting...');
 
-  if (trackingIframe) {
-    // Start tracking for this question
-    trackingIframe.contentWindow.postMessage({
-      type: 'start-tracking',
-      questionId: questionId,
-      questionStartTime: trackingStartTime
-    }, '*');
+      // Start tracking for this question
+      iframe.contentWindow.postMessage({
+        type: 'start-tracking',
+        questionId: questionId,
+        questionStartTime: trackingStartTime
+      }, '*');
 
-    // Send viewport updates for coordinate transformation (handles scrolling)
-    const viewportInterval = setInterval(function() {
-      trackingIframe.contentWindow.postMessage({
+      // Remove this one-time listener
+      window.removeEventListener('message', trackingReadyListener);
+    }
+  };
+  window.addEventListener('message', trackingReadyListener);
+
+  // Send viewport updates for coordinate transformation (handles scrolling)
+  const viewportInterval = setInterval(function() {
+    if (iframe.contentWindow) {
+      iframe.contentWindow.postMessage({
         type: 'viewport-update',
         scrollX: window.scrollX,
         scrollY: window.scrollY
       }, '*');
-    }, 100);
-
-    this.viewportInterval = viewportInterval;
-  }
+    }
+  }, 100);
+  this.viewportInterval = viewportInterval;
 
   // Listen for gaze data from tracking iframe
   const gazeListener = function(event) {
@@ -214,8 +237,8 @@ Qualtrics.SurveyEngine.addOnPageSubmit(function() {
 ```
 
 4. **Update the `questionId` variable** in TWO places:
-   - Line 2: `const questionId = 'Q2';` → Change to your question number
-   - Line 48: `const questionId = 'Q2';` → Change to match
+   - Line 147: `const questionId = 'Q2';` → Change to your question number
+   - Line 215: `const questionId = 'Q2';` → Change to match
 5. Save the question
 
 **Repeat for all tracked questions**: Q2, Q3, Q4, Q5, Q6, Q7, Q8, Q9, Q11, Q12, etc. (skip Q10 for now)
@@ -295,26 +318,54 @@ Qualtrics.SurveyEngine.addOnPageSubmit(function() {
 Qualtrics.SurveyEngine.addOnload(function() {
   const questionId = 'Q10';  // ⚠️ UPDATE FOR EACH RECALIBRATION QUESTION
 
+  // Create hidden tracking iframe (loads calibration from localStorage)
+  const iframe = document.createElement('iframe');
+  iframe.id = 'calibration-iframe';
+  iframe.src = 'https://kiante-fernandez.github.io/webgazer-qualtrics/experiments/calibration.html';
+  iframe.allow = 'camera; microphone';
+  iframe.style.position = 'fixed';
+  iframe.style.bottom = '0';
+  iframe.style.left = '0';
+  iframe.style.width = '1px';
+  iframe.style.height = '1px';
+  iframe.style.border = 'none';
+  iframe.style.visibility = 'hidden';
+  iframe.style.pointerEvents = 'none';
+  iframe.style.zIndex = '-1';
+  document.body.appendChild(iframe);
+
   let gazeData = [];
   let trackingStartTime = performance.now();
-  const trackingIframe = document.getElementById('calibration-iframe');
 
-  if (trackingIframe) {
-    trackingIframe.contentWindow.postMessage({
-      type: 'start-tracking',
-      questionId: questionId,
-      questionStartTime: trackingStartTime
-    }, '*');
+  // Wait for tracking-ready message from iframe
+  const trackingReadyListener = function(event) {
+    if (event.data.type === 'tracking-ready') {
+      console.log('[Q' + questionId.substring(1) + '] Tracking ready, starting...');
 
-    const viewportInterval = setInterval(function() {
-      trackingIframe.contentWindow.postMessage({
+      // Start tracking for this question (tracks during prompt and recalibration)
+      iframe.contentWindow.postMessage({
+        type: 'start-tracking',
+        questionId: questionId,
+        questionStartTime: trackingStartTime
+      }, '*');
+
+      // Remove this one-time listener
+      window.removeEventListener('message', trackingReadyListener);
+    }
+  };
+  window.addEventListener('message', trackingReadyListener);
+
+  // Send viewport updates
+  const viewportInterval = setInterval(function() {
+    if (iframe.contentWindow) {
+      iframe.contentWindow.postMessage({
         type: 'viewport-update',
         scrollX: window.scrollX,
         scrollY: window.scrollY
       }, '*');
-    }, 100);
-    this.viewportInterval = viewportInterval;
-  }
+    }
+  }, 100);
+  this.viewportInterval = viewportInterval;
 
   const gazeListener = function(event) {
     if (event.data.type === 'gaze-data') {
@@ -353,9 +404,9 @@ Qualtrics.SurveyEngine.addOnPageSubmit(function() {
 ```
 
 6. **Update question IDs** in THREE places:
-   - HTML: `'recalibrated_at_Q10'` (line 48)
-   - JavaScript: `const questionId = 'Q10';` (line 2)
-   - JavaScript: `const questionId = 'Q10';` (line 37)
+   - HTML: `'recalibrated_at_Q10'` (line 303)
+   - JavaScript: `const questionId = 'Q10';` (line 319)
+   - JavaScript: `const questionId = 'Q10';` (line 386)
 7. Save the question
 
 **Repeat for Q20, Q30, Q40** if your survey has 20+ questions.
