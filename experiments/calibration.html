@@ -191,43 +191,82 @@
       trial_duration: 1000
     });
 
-    // Infinite Tracking
+    // Start Tracking and Send Calibration Complete
     timeline.push({
       type: jsPsychCallFunction,
       async: true,
       func: async function (done) {
-        console.log('[Calibration] Starting infinite tracking...');
+        console.log('[Calibration] Starting tracker...');
         try {
           await adapter.start();
           console.log('[Calibration] Adapter started successfully');
           initTrackingMode();
+
+          // Send calibration-complete message to parent immediately
+          // (Don't wait for on_finish since we'll enter infinite mode)
+          if (window.parent !== window) {
+            var model_key = 'webeyetrack_model_' + Date.now();
+            window.parent.postMessage({
+              type: 'calibration-complete',
+              average_offset: final_validation_data ? final_validation_data.rmse : null,
+              recalibrated: calibration_attempts > 1,
+              calibration_attempts: calibration_attempts,
+              validation_data: final_validation_data,
+              model_key: model_key
+            }, '*');
+            console.log('[Calibration] Sent calibration-complete to parent, hiding iframe');
+          }
+
+          // Complete this trial to proceed to infinite tracking mode
+          done();
         } catch (e) {
           console.error('[Calibration] Error starting adapter:', e);
           alert('Error starting eye tracking: ' + e.message);
+          done();
         }
-        // Do NOT call done() to keep this trial running forever?
-        // jsPsychCallFunction expects done().
-        // If we want to keep it alive, we can just NOT call done.
-        // But we want to execute the 'on_finish' of the experiment?
-        // The original code used an infinite trial.
-        // We can use a trial with no end.
       }
     });
 
-    // To keep jsPsych alive and showing something:
-    timeline.push({
-      type: jsPsychHtmlButtonResponse,
-      stimulus: '<div style="text-align: center; color: #999;">Eye tracking active</div>',
-      choices: [],
-      trial_duration: null,
-      on_load: function () {
-        // Hide UI
-        setTimeout(() => {
-          const el = document.querySelector('#jspsych-html-button-response-stimulus');
-          if (el) el.style.display = 'none';
-        }, 1000);
-      }
-    });
+    // Conditional final trial based on context
+    // In Qualtrics iframe: Keep jsPsych alive indefinitely for tracking
+    // In standalone mode: Show completion message with close button
+    const isInIframe = window.parent !== window;
+
+    if (isInIframe) {
+      // Qualtrics iframe mode: infinite trial (tracking stays active)
+      timeline.push({
+        type: jsPsychHtmlButtonResponse,
+        stimulus: '<div style="text-align: center; color: #999;">Eye tracking active</div>',
+        choices: [],
+        trial_duration: null,
+        on_load: function () {
+          // Hide UI after calibration complete
+          setTimeout(() => {
+            const el = document.querySelector('#jspsych-html-button-response-stimulus');
+            if (el) el.style.display = 'none';
+          }, 1000);
+        }
+      });
+    } else {
+      // Standalone mode: show completion with close button
+      timeline.push({
+        type: jsPsychHtmlButtonResponse,
+        stimulus: `
+          <div style="text-align: center; padding: 40px;">
+            <h2 style="color: #2ecc71;">✅ Eye Tracking Active</h2>
+            <p style="margin: 20px 0;">Calibration complete and tracker is running.</p>
+            <p style="color: #666; font-size: 14px;">In Qualtrics, this iframe would remain hidden while tracking continues.</p>
+            <p style="color: #666; font-size: 14px; margin-top: 30px;">You can close this window now or click the button below.</p>
+          </div>
+        `,
+        choices: ['Close Window'],
+        on_finish: function () {
+          console.log('[Calibration] Standalone test complete - closing window');
+          // In standalone mode, user can close the window
+          // The tracker will continue running until page is closed
+        }
+      });
+    }
 
     jsPsych.run(timeline);
 
