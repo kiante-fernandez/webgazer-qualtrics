@@ -6,20 +6,18 @@ export default class GazeAdapter {
     private sampleCallback: ((sample: any) => void) | null = null;
     private lastSample: any = null;
     private videoElement: HTMLVideoElement | null = null;
-    private canvasElement: HTMLCanvasElement | null = null;
     private isReady: boolean = false;
+    private isTracking: boolean = false;
 
-    constructor(options: any = {}) {
-        // Options could include video element ID, etc.
-        // For now, we'll create a hidden video element if not provided
+    constructor() {
+        // Adapter initialized, call init() to set up camera
     }
 
     async init(): Promise<void> {
         if (this.isReady) return;
 
         if (!this.isAvailable()) {
-            console.warn('WebEyeTrack is not available on this device.');
-            return;
+            throw new Error('WebEyeTrack is not available. Camera access is required.');
         }
 
         // Create video element for WebcamClient
@@ -54,74 +52,13 @@ export default class GazeAdapter {
 
     async start(): Promise<void> {
         if (!this.isReady) await this.init();
-        if (this.proxy) {
-            // The proxy starts inference when the webcam starts sending frames
-            // logic in proxy: webcamClient.startWebcam(...)
-            // But proxy.constructor calls webcamClient.startWebcam? 
-            // Wait, looking at proxy code: 
-            // case 'ready': webcamClient.startWebcam(...)
-            // So it starts automatically when worker is ready.
-            // But we might want to control it.
-            // The proxy doesn't seem to have an explicit 'startInference' method exposed in the snippet I saw?
-            // Wait, the browser subagent saw `startInference`.
-            // Let's assume `startInference` exists or we trigger it.
-            // If the snippet showed:
-            // case 'ready': webcamClient.startWebcam(...)
-            // This means it starts immediately on ready.
-            // We might need to control this.
-            // For now, let's assume calling init() starts the camera flow.
-
-            // Actually, looking at the snippet:
-            // webcamClient.startWebcam(async (frame, timestamp) => { ... worker.postMessage('step') ... })
-            // This starts the loop.
-
-            // If we want to "start" and "stop", we might need to stop the webcam or ignore results.
-            // WebcamClient has stopWebcam().
-
-            // Let's verify if `startInference` exists on proxy.
-            // I'll assume it does based on the subagent report, but if not, I'll rely on webcam control.
-            // The snippet showed `onGazeResults` assignment.
-
-            // If `startInference` is not on the proxy (it wasn't in the snippet I read, but was in the screenshot?), 
-            // I'll check the screenshot content mentally.
-            // Screenshot `webeyetrackproxy_ts` showed:
-            // `startInference(callback)`? No, the snippet I read was:
-            // `onGazeResults: (gazeResult: GazeResult) => void = () => { ... }`
-            // And the constructor sets up the worker message handler.
-            // And `webcamClient.startWebcam` is called in `case 'ready'`.
-            // So it starts AUTOMATICALLY.
-
-            // To implement `start()` and `stop()`, I might need to manage the webcam or a flag.
-            // `stop()`: `this.webcam.stopWebcam()`?
-            // `start()`: `this.webcam.startWebcam(...)`?
-            // But the proxy handles `startWebcam` internally in `case 'ready'`.
-            // This is a bit rigid.
-            // If I call `stop()`, I should probably stop the webcam.
-            // If I call `start()`, I might need to re-trigger the proxy's flow?
-            // Or just ignore samples if stopped.
-
-            // Let's assume for now `start` ensures webcam is running and `stop` stops it.
-            // But `proxy` calls `startWebcam` with a specific callback.
-            // If I call `webcam.stopWebcam()`, the callback stops.
-            // If I call `webcam.startWebcam()` again, I need to pass the SAME callback.
-            // But the callback is defined inside the proxy constructor's closure!
-            // This makes restarting hard if I stop the webcam.
-
-            // Workaround: Don't stop the webcam, just ignore samples in `handleGazeResult`.
-            // Or, if `stop` is meant to release resources, I'm in trouble.
-            // But usually `stop` in these experiments just means "pause tracking".
-            // WebGazer has `pause` and `resume`.
-            // The adapter API has `stop`.
-            // I'll implement a `isTracking` flag.
-        }
+        // WebEyeTrack proxy starts automatically on init
+        // Use isTracking flag to control sample processing
         this.isTracking = true;
     }
 
     async stop(): Promise<void> {
         this.isTracking = false;
-        // Optionally stop webcam to save battery?
-        // this.webcam?.stopWebcam(); 
-        // But restarting is hard as noted above.
     }
 
     async calibrate(points: { x: number, y: number }[] = []): Promise<any> {
@@ -144,7 +81,7 @@ export default class GazeAdapter {
             const dot = document.createElement('div');
             dot.style.width = '20px';
             dot.style.height = '20px';
-            dot.style.background = 'red';
+            dot.style.background = '#2ecc71';  // Professional green
             dot.style.borderRadius = '50%';
             dot.style.position = 'absolute';
             dot.style.transition = 'all 0.5s';
@@ -293,17 +230,13 @@ export default class GazeAdapter {
         return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
     }
 
-    private isTracking: boolean = false;
-
     private handleGazeResult(result: GazeResult) {
         if (!this.isTracking) return;
 
         const { normPog, gazeState } = result;
-        // normPog is [x, y] normalized?
-        // App.tsx: x: (gazeResult.normPog[0] + 0.5) * window.innerWidth
-        // So normPog is centered at 0? [-0.5, 0.5]?
-        // Yes, App.tsx adds 0.5.
 
+        // WebEyeTrack normPog is centered at 0 in range [-0.5, 0.5]
+        // Convert to screen coordinates
         const x = (normPog[0] + 0.5) * window.innerWidth;
         const y = (normPog[1] + 0.5) * window.innerHeight;
 
@@ -312,8 +245,8 @@ export default class GazeAdapter {
             y,
             t: Date.now(),
             perf_t: performance.now(),
-            confidence: gazeState === 'tracking' ? 1 : 0, // Simplified
-            trial_id: '' // user can set this?
+            confidence: gazeState === 'tracking' ? 1 : 0,
+            trial_id: ''
         };
 
         this.lastSample = sample;

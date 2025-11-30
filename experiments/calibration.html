@@ -76,34 +76,34 @@
 
     var timeline = [];
 
-    // Welcome
+    // Welcome + Camera Permission Screen
     timeline.push({
       type: jsPsychHtmlButtonResponse,
       stimulus: `
         <div style="text-align: center; padding: 20px; max-width: 600px; margin: 0 auto;">
           <h2>Eye Tracking Calibration</h2>
           <p>This study requires eye tracking to verify human participation.</p>
-          <p>You will see dots appear on the screen. Please:</p>
-          <ul style="text-align: left; margin: 20px auto; display: inline-block;">
-            <li>Look directly at each dot</li>
-            <li>The system will automatically calibrate</li>
-          </ul>
+          <p><strong>Camera Permission Required:</strong> You will be asked to allow camera access. This is necessary for eye tracking.</p>
+          <p id="camera-status" style="color: #999; margin-top: 20px;">
+            <em>Initializing camera...</em>
+          </p>
         </div>
       `,
-      choices: ['Start Calibration']
-    });
+      choices: ['Continue'],
+      on_load: async function() {
+        // Disable the button initially
+        const continueBtn = document.querySelector('.jspsych-btn');
+        if (continueBtn) continueBtn.disabled = true;
 
-    // Initialize Camera
-    timeline.push({
-      type: jsPsychCallFunction,
-      async: true,
-      func: async function (done) {
         try {
           await adapter.init();
-          done();
+          document.getElementById('camera-status').innerHTML =
+            '<span style="color: #2ecc71;">✓ Camera ready</span>';
+          if (continueBtn) continueBtn.disabled = false;
         } catch (e) {
-          alert('Camera initialization failed: ' + e.message);
-          // Don't call done() to halt? Or proceed with error?
+          document.getElementById('camera-status').innerHTML =
+            '<span style="color: #e74c3c;">✗ Camera initialization failed: ' + e.message + '</span>';
+          // Keep button disabled - user cannot proceed
         }
       }
     });
@@ -116,10 +116,19 @@
       sequence.push({
         type: jsPsychHtmlButtonResponse,
         stimulus: `
-          <div style="text-align: center; padding: 20px;">
-            <h3>Calibration Phase</h3>
-            <p>Dots will appear on the screen.</p>
-            <p>Look at them until they disappear.</p>
+          <div style="text-align: center; padding: 20px; max-width: 600px; margin: 0 auto;">
+            <h3>Calibration Instructions</h3>
+            <p>Green dots will appear at different positions on your screen.</p>
+            <p><strong>Please:</strong></p>
+            <ul style="text-align: left; margin: 20px auto; display: inline-block;">
+              <li>Look directly at each dot until it disappears</li>
+              <li>Use your eyes to look at the dots, not your head</li>
+              <li>Stay centered and keep good lighting</li>
+              <li>Sit at a comfortable distance from the screen</li>
+            </ul>
+            <p style="color: #666; font-size: 14px; margin-top: 20px;">
+              The calibration takes about 30 seconds.
+            </p>
           </div>
         `,
         choices: ['Begin Calibration']

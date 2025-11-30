@@ -7,13 +7,15 @@ This guide shows you how to embed WebEyeTrack eye tracking into your Qualtrics s
 The integration uses a **persistent iframe** strategy to maintain WebEyeTrack state throughout the survey:
 
 1. **Header**: Creates a hidden 1px × 1px iframe running `calibration.html`
-2. **Q1**: Makes iframe visible for calibration, then hides it
+2. **Q1**: Makes iframe visible for calibration with improved user flow, then hides it
 3. **Q2+**: Iframe streams gaze data to questions via `postMessage`
 
 This approach ensures:
 - **Continuous tracking**: One WebEyeTrack instance throughout survey
 - **No model reload**: Calibration persists between questions
 - **Simple integration**: Copy-paste JavaScript templates per question
+- **User-friendly**: Camera permission requested before calibration can start
+- **Professional appearance**: Green calibration dots, clear instructions
 
 ---
 
@@ -94,26 +96,33 @@ See `example-question-code.js` for full copy-paste templates. Here's a summary:
 
 ### Question 1 (Calibration)
 
+The calibration question now includes improved user flow:
+- **Camera permission requested immediately** on page load
+- User cannot proceed until camera is ready
+- **Green calibration dots** (professional appearance)
+- **Clear instructions** guide users through the process
+- Auto-advances after successful calibration
+
 ```javascript
 Qualtrics.SurveyEngine.addOnload(function() {
   const iframe = document.getElementById('calibration-iframe');
-  
+
   // Make iframe visible
   iframe.style.width = '100%';
   iframe.style.height = '800px';
   iframe.style.visibility = 'visible';
   // ... more styling
-  
+
   // Listen for calibration-complete
   window.addEventListener('message', function(event) {
     if (event.data.type === 'calibration-complete') {
       // Save calibration data
       Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_offset', event.data.average_offset);
       // ... save other fields
-      
+
       // Hide iframe
       // ... reset styling to hidden
-      
+
       // Auto-advance
       document.getElementById('NextButton').click();
     }

@@ -118,6 +118,13 @@ gaze_Q12
 3. Click the gear icon → **"Add JavaScript"**
 4. **Copy and paste this code**:
 
+**Note:** The calibration flow includes improved user experience:
+- Camera permission requested immediately when page loads
+- User cannot proceed until camera is ready
+- Green calibration dots guide attention
+- Clear instructions explain what to do
+- Auto-advances after successful calibration
+
 ```javascript
 Qualtrics.SurveyEngine.addOnload(function() {
   const iframe = document.getElementById('calibration-iframe');
@@ -177,6 +184,11 @@ Qualtrics.SurveyEngine.addOnload(function() {
 
 **What this does:**
 - Makes the persistent iframe visible for calibration
+- Displays welcome screen with camera permission request
+- Shows "Initializing camera..." status, then "✓ Camera ready" when ready
+- User sees clear instructions before calibration begins
+- Green dots appear for calibration (8 positions)
+- Blue dots appear for validation (4 positions)
 - After calibration completes, hides the iframe again
 - Iframe stays alive in tracking mode throughout rest of survey
 - Auto-advances to Question 2

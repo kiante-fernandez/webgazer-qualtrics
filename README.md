@@ -73,22 +73,39 @@ See `qualtrics/README.md` for detailed integration instructions.
 
 ## Calibration
 
-The calibration process:
-1.  Displays calibration points on screen
-2.  Guides user to look at each point
-3.  Feeds gaze data to WebEyeTrack's personalization API
-4.  Returns RMSE (Root Mean Square Error) accuracy metric
+The calibration process includes improved user experience:
+
+**Camera Permission Flow:**
+1.  Welcome screen explains eye tracking requirement
+2.  Camera permission requested immediately on page load
+3.  User cannot proceed until camera is ready
+4.  Clear status feedback ("Initializing camera..." → "✓ Camera ready")
+
+**Calibration Phase:**
+1.  Detailed instructions guide users on proper setup
+2.  Green dots appear at 8 positions on screen
+3.  User looks at each dot until it disappears
+4.  System feeds gaze data to WebEyeTrack's personalization API
+
+**Validation Phase:**
+1.  Blue dots appear at 4 different positions
+2.  System measures accuracy using collected gaze samples
+3.  Returns RMSE (Root Mean Square Error) accuracy metric
+4.  Offers recalibration if accuracy is below threshold (RMSE > 0.08)
 
 ## Fallback Behavior
 
 If camera is unavailable or permission denied:
-- `adapter.init()` throws an error
-- `adapter.isAvailable()` returns `false`
-- Experiment logs diagnostic information
+- Welcome screen shows error message
+- "Continue" button remains disabled
+- User cannot proceed without camera access
+- Clear error feedback displayed
 
-## Visual Verification
+## Visual Feedback
 
-After calibration, a red dot appears in standalone mode to show gaze prediction in real-time. This helps verify tracking accuracy.
+- **Calibration dots**: Professional green (#2ecc71)
+- **Validation dots**: Blue (for accuracy testing)
+- **Tracking dot**: Red dot in standalone mode shows real-time gaze prediction
 
 ## License
 
