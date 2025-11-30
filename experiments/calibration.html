@@ -149,36 +149,50 @@
     // Add calibration
     timeline = timeline.concat(create_calibration_sequence());
 
-    // Recalibration logic (simplified for adapter)
-    // We can check final_validation_data.rmse
+    // Recalibration logic: Offer only if accuracy is poor
     var recalibration_offer = {
       timeline: [
         {
           type: jsPsychHtmlButtonResponse,
           stimulus: function () {
+            var rmse = final_validation_data ? final_validation_data.rmse : 0;
+            var accuracy_msg = rmse > 0.08 ? "Accuracy is low." : "Accuracy is good.";
             return `
               <div style="text-align: center; padding: 20px;">
-                <h3>Calibration Accuracy</h3>
-                <p>RMSE: ${final_validation_data ? final_validation_data.rmse.toFixed(2) : 'N/A'}</p>
-                <p>Would you like to recalibrate?</p>
+                <h3>Calibration Check</h3>
+                <p>RMSE: ${rmse.toFixed(3)} (${accuracy_msg})</p>
+                <p>We recommend recalibrating to ensure best results.</p>
               </div>
             `;
           },
-          choices: ['Yes, Recalibrate', 'No, Continue']
+          choices: ['Recalibrate', 'Continue Anyway']
         },
         {
           timeline: create_calibration_sequence(),
           conditional_function: function () {
             var last_response = jsPsych.data.get().last(1).values()[0];
-            return last_response.response === 0;
+            return last_response.response === 0; // 0 is 'Recalibrate'
           }
         }
       ],
       conditional_function: function () {
-        // Offer if RMSE is high (e.g. > 0.5? Unit depends on adapter)
-        // Let's assume > 100 pixels equivalent or normalized > 0.1
-        // Our dummy adapter returns 0.5.
-        return calibration_attempts === 1;
+        // Only show this screen if RMSE is worse than threshold (0.08)
+        // Based on logs, good calibration is ~0.02 - 0.03
+        var threshold = 0.08;
+        var rmse = final_validation_data ? final_validation_data.rmse : null;
+
+        console.log('[Calibration] Checking recalibration condition:');
+        console.log('  RMSE:', rmse);
+        console.log('  Threshold:', threshold);
+
+        if (!final_validation_data || rmse === undefined || rmse === null) {
+          console.log('  Decision: SHOW recalibration (no validation data available)');
+          return true; // Safety fallback
+        }
+
+        var shouldShow = rmse > threshold;
+        console.log('  Decision:', shouldShow ? 'SHOW recalibration (poor accuracy)' : 'SKIP recalibration (good accuracy)');
+        return shouldShow;
       }
     };
     timeline.push(recalibration_offer);

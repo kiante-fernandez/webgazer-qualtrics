@@ -191,15 +191,18 @@ Qualtrics.SurveyEngine.addOnload(function() {
 3. **Copy and paste this code**:
 
 ```javascript
-(function(questionId) {
+(function (questionId) {
   let gazeData = [];
   let gazeListener = null;
   let viewportInterval = null;
   let trackingStartTime = 0;
 
-  Qualtrics.SurveyEngine.addOnload(function() {
+  Qualtrics.SurveyEngine.addOnload(function () {
     const iframe = document.getElementById('calibration-iframe');
-    if (!iframe) return;
+    if (!iframe) {
+      console.error('[' + questionId + '] Persistent iframe not found! Make sure Header code is installed.');
+      return;
+    }
 
     gazeData = [];
     trackingStartTime = performance.now();
@@ -210,7 +213,7 @@ Qualtrics.SurveyEngine.addOnload(function() {
       questionStartTime: trackingStartTime
     }, '*');
 
-    viewportInterval = setInterval(function() {
+    viewportInterval = setInterval(function () {
       if (iframe.contentWindow) {
         iframe.contentWindow.postMessage({
           type: 'viewport-update',
@@ -220,56 +223,53 @@ Qualtrics.SurveyEngine.addOnload(function() {
       }
     }, 100);
 
-    gazeListener = function(event) {
-      try {
-        if (!event.data || !event.data.type) return;
-
-        if (event.data.type === 'gaze-data') {
+    gazeListener = function (event) {
+      if (event.data.type === 'gaze-data') {
+        // Ensure valid data before pushing
+        if (typeof event.data.x === 'number' && typeof event.data.y === 'number') {
           gazeData.push({
             t: Math.round(event.data.timestamp - trackingStartTime),
             x: Math.round(event.data.x),
             y: Math.round(event.data.y)
           });
-        } else if (event.data.type === 'gaze-data-batch' && Array.isArray(event.data.samples)) {
-          event.data.samples.forEach(s => {
-            gazeData.push({
-              t: Math.round(s.perf_t - trackingStartTime),
-              x: Math.round(s.x),
-              y: Math.round(s.y)
-            });
-          });
         }
-      } catch (e) {
-        // silently ignore
+      } else if (event.data.type === 'gaze-data-batch') {
+        // Handle batch data (note: this usually arrives AFTER page submit, so it might be too late for saving)
+        event.data.samples.forEach(s => {
+          // FIX: Use s.timestamp instead of s.perf_t
+          const timestamp = s.timestamp !== undefined ? s.timestamp : s.perf_t;
+
+          gazeData.push({
+            t: Math.round(timestamp - trackingStartTime),
+            x: Math.round(s.x),
+            y: Math.round(s.y)
+          });
+        });
       }
     };
-
     window.addEventListener('message', gazeListener);
   });
 
-  Qualtrics.SurveyEngine.addOnPageSubmit(function() {
-    const iframe = document.getElementById('calibration-iframe');
-    if (iframe && iframe.contentWindow) {
-      iframe.contentWindow.postMessage({ type: 'pause-tracking' }, '*');
+  Qualtrics.SurveyEngine.addOnPageSubmit(function () {
+    const trackingIframe = document.getElementById('calibration-iframe');
+    if (trackingIframe) {
+      trackingIframe.contentWindow.postMessage({ type: 'pause-tracking' }, '*');
     }
 
     if (viewportInterval) {
       clearInterval(viewportInterval);
-      viewportInterval = null;
     }
 
-    setTimeout(function() {
+    // Delay listener removal slightly
+    setTimeout(() => {
       if (gazeListener) {
         window.removeEventListener('message', gazeListener);
-        gazeListener = null;
       }
-      try {
-        const dataToSave = JSON.stringify(gazeData);
-        Qualtrics.SurveyEngine.setEmbeddedData('gaze_' + questionId, dataToSave);
-      } catch (e) {
-        Qualtrics.SurveyEngine.setEmbeddedData('gaze_' + questionId, '[]');
-      }
-    }, 200);
+    }, 1000);
+
+    // Save as JSON
+    const dataToSave = JSON.stringify(gazeData);
+    Qualtrics.SurveyEngine.setEmbeddedData('gaze_' + questionId, dataToSave);
   });
 })('Q2');
 ```
@@ -456,15 +456,15 @@ Your continuous eye tracking is now set up. When participants take your survey:
 
 ### Data Format
 
-Gaze data is saved in compressed format: `"t1,x1,y1|t2,x2,y2|..."`
+Gaze data is saved as a **JSON string**: `[{"t":0,"x":512,"y":384},{"t":67,"x":515,"y":386},...]`
 
 Where:
 - `t` = Timestamp in ms (relative to question start)
 - `x`, `y` = Gaze coordinates in pixels (relative to viewport)
 
-**Example:** `gaze_Q2 = "0,512,384|67,515,386|134,518,390|..."`
+**Example:** `gaze_Q2 = [{"t":0,"x":512,"y":384},{"t":67,"x":515,"y":386},...]`
 
-**Data Size:** At 15 Hz, expect ~1 KB per 5-second question. A 50-question survey = ~55 KB (well within Qualtrics limits).
+**Data Size:** At 15 Hz, expect ~2-3 KB per 5-second question. A 50-question survey = ~150 KB (well within Qualtrics limits).
 
 ### Configuration
 

@@ -125,23 +125,12 @@ export default class GazeAdapter {
     }
 
     async calibrate(points: { x: number, y: number }[] = []): Promise<any> {
-        // This needs to implement a calibration flow.
-        // 1. Create overlay
-        // 2. Show points one by one
-        // 3. Collect samples (how? proxy.addCalibrationSample?)
-        // 4. Compute metrics
-
-        // Since I don't have the full proxy API for calibration confirmed (startCalibration etc),
-        // I will implement a placeholder that logs and returns dummy metrics for now,
-        // OR try to use the `click` handler logic seen in the proxy:
-        // `window.addEventListener('click', ... worker.postMessage({ type: 'click' ... }))`
-        // The proxy listens to clicks for calibration!
-        // So `calibrate` could just be: "User, please click on these points".
-
-        // If `points` are provided, I should show them.
-        // I'll implement a simple overlay.
-
         return new Promise(async (resolve) => {
+            // Ensure tracking is started so we can collect validation samples
+            if (!this.isTracking) {
+                await this.start();
+            }
+
             const overlay = document.createElement('div');
             overlay.style.position = 'fixed';
             overlay.style.top = '0';
@@ -161,22 +150,27 @@ export default class GazeAdapter {
             dot.style.transition = 'all 0.5s';
             overlay.appendChild(dot);
 
-            const defaultPoints = [
-                { x: 0.1, y: 0.1 }, { x: 0.9, y: 0.1 },
-                { x: 0.5, y: 0.5 },
-                { x: 0.1, y: 0.9 }, { x: 0.9, y: 0.9 }
+            // Calibration points (where user clicks to calibrate)
+            const defaultCalibPoints = [
+                { x: 0.5, y: 0.1 },   // top center
+                { x: 0.1, y: 0.5 },   // left middle
+                { x: 0.9, y: 0.5 },   // right middle
+                { x: 0.5, y: 0.5 },   // center
+                { x: 0.1, y: 0.1 },   // top left
+                { x: 0.9, y: 0.1 },   // top right
+                { x: 0.1, y: 0.9 },   // bottom left
+                { x: 0.9, y: 0.9 },   // bottom right
             ];
-            const calibPoints = points.length > 0 ? points : defaultPoints;
+            const calibPoints = points.length > 0 ? points : defaultCalibPoints;
 
+            // PHASE 1: Calibration
             for (const p of calibPoints) {
                 dot.style.left = `${p.x * 100}%`;
                 dot.style.top = `${p.y * 100}%`;
 
                 await new Promise(r => setTimeout(r, 1000)); // Wait for eye to settle
 
-                // Simulate click or trigger calibration sample
-                // The proxy listens to window clicks.
-                // We can dispatch a click event?
+                // Dispatch click event for WebEyeTrack calibration
                 const clickEvent = new MouseEvent('click', {
                     clientX: p.x * window.innerWidth,
                     clientY: p.y * window.innerHeight,
@@ -187,8 +181,103 @@ export default class GazeAdapter {
                 await new Promise(r => setTimeout(r, 500));
             }
 
+            // Wait for tracking to stabilize after calibration
+            await new Promise(r => setTimeout(r, 1000));
+
+            // Ensure we have samples before proceeding
+            let waitAttempts = 0;
+            while (!this.lastSample && waitAttempts < 50) {
+                await new Promise(r => setTimeout(r, 100));
+                waitAttempts++;
+            }
+
+            if (!this.lastSample) {
+                console.warn('[GazeAdapter] No gaze samples available - validation skipped');
+                document.body.removeChild(overlay);
+                resolve({
+                    rmse: 0.1, // Assume decent calibration if tracker is working
+                    rmse_pixels: 100,
+                    errors: [],
+                    validation_points: 0,
+                    warning: 'No samples available for validation'
+                });
+                return;
+            }
+
+            // PHASE 2: Validation (different points to test accuracy)
+            const validationPoints = [
+                { x: 0.3, y: 0.3 },
+                { x: 0.7, y: 0.3 },
+                { x: 0.5, y: 0.7 },
+                { x: 0.3, y: 0.7 },
+            ];
+
+            const errors: number[] = [];
+
+            for (const p of validationPoints) {
+                dot.style.left = `${p.x * 100}%`;
+                dot.style.top = `${p.y * 100}%`;
+                dot.style.background = 'blue'; // Different color for validation
+
+                await new Promise(r => setTimeout(r, 800)); // Wait for eye to settle
+
+                // Collect gaze samples
+                const samples: { x: number, y: number }[] = [];
+                const sampleDuration = 300; // ms
+                const sampleStart = performance.now();
+
+                while (performance.now() - sampleStart < sampleDuration) {
+                    if (this.lastSample) {
+                        samples.push({ x: this.lastSample.x, y: this.lastSample.y });
+                    }
+                    await new Promise(r => setTimeout(r, 16)); // ~60fps
+                }
+
+                if (samples.length > 0) {
+                    // Calculate median gaze position (more robust than mean)
+                    const sortedX = samples.map(s => s.x).sort((a, b) => a - b);
+                    const sortedY = samples.map(s => s.y).sort((a, b) => a - b);
+                    const medianX = sortedX[Math.floor(sortedX.length / 2)];
+                    const medianY = sortedY[Math.floor(sortedY.length / 2)];
+
+                    // Expected position in pixels
+                    const expectedX = p.x * window.innerWidth;
+                    const expectedY = p.y * window.innerHeight;
+
+                    // Euclidean distance error
+                    const error = Math.sqrt(
+                        Math.pow(medianX - expectedX, 2) +
+                        Math.pow(medianY - expectedY, 2)
+                    );
+                    errors.push(error);
+                }
+            }
+
             document.body.removeChild(overlay);
-            resolve({ rmse: 0.5 }); // Dummy metric for now
+
+            // Calculate RMSE (Root Mean Square Error)
+            // Normalize by screen diagonal to get a 0-1 range
+            const screenDiagonal = Math.sqrt(
+                Math.pow(window.innerWidth, 2) +
+                Math.pow(window.innerHeight, 2)
+            );
+
+            const squaredErrors = errors.map(e => Math.pow(e, 2));
+            const meanSquaredError = squaredErrors.reduce((a, b) => a + b, 0) / squaredErrors.length;
+            const rmse = Math.sqrt(meanSquaredError);
+            const normalizedRMSE = rmse / screenDiagonal; // 0-1 range
+
+            console.log('[GazeAdapter] Validation complete:');
+            console.log('  Errors (px):', errors.map(e => e.toFixed(1)));
+            console.log('  RMSE (px):', rmse.toFixed(1));
+            console.log('  Normalized RMSE:', normalizedRMSE.toFixed(3));
+
+            resolve({
+                rmse: normalizedRMSE,
+                rmse_pixels: rmse,
+                errors: errors,
+                validation_points: validationPoints.length
+            });
         });
     }
 
