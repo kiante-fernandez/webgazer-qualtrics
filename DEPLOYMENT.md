@@ -89,11 +89,12 @@ Open calibration page directly:
 https://kiante-fernandez.github.io/webgazer-qualtrics/experiments/calibration.html
 ```
 
-Check browser console for:
-- [ ] "✅ BlazeGaze model loaded successfully"
-- [ ] "[WebEyeTrackProxy] Worker is ready"
+Check browser console for (in order):
+- [ ] `[WebEyeTrackProxy] Model path: https://kiante-fernandez.github.io/webgazer-qualtrics/experiments/dist/web/model.json`
+- [ ] `[WebEyeTrackProxy] Worker is ready`
+- [ ] `✅ BlazeGaze model loaded successfully from: [path]`
 - [ ] No CORS errors
-- [ ] No 404 errors
+- [ ] No 404 errors in Network tab
 - [ ] Red dot appears and tracks gaze after calibration
 
 ## Qualtrics Integration
@@ -167,9 +168,13 @@ Use code from `qualtrics/example-question-code.js`:
 ## Troubleshooting
 
 ### "BlazeGaze model failed to load"
-- Check: `dist/web/model.json` exists on GitHub Pages
+- **Error**: `Failed to parse URL from ./dist/web/model.json`
+  - **Cause**: Old version cached - relative paths don't work in Web Workers
+  - **Fix**: Hard refresh (Cmd+Shift+R / Ctrl+Shift+R) to get latest bundle
+  - **Verify**: Console should show `[WebEyeTrackProxy] Model path: https://...` (absolute URL)
+- Check: `dist/web/model.json` exists on GitHub Pages (visit URL directly)
 - Check: No CORS errors in Network tab
-- Check: Path is relative (not absolute)
+- Check: Console shows absolute model path (not relative)
 
 ### "Worker not ready"
 - Check: Web Workers enabled in browser

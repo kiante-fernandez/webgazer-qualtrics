@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Model Path Test</title>
+</head>
+<body>
+    <h1>Model Path Construction Test</h1>
+    <div id="results"></div>
+
+    <script>
+        // Test model path construction logic
+        function testModelPath() {
+            const results = [];
+
+            // Current page info
+            results.push(`<h2>Current Location:</h2>`);
+            results.push(`Origin: <code>${window.location.origin}</code>`);
+            results.push(`Pathname: <code>${window.location.pathname}</code>`);
+            results.push(`Href: <code>${window.location.href}</code>`);
+
+            // Model path construction (same logic as WebEyeTrackProxy)
+            const modelPath = `${window.location.origin}${window.location.pathname.replace(/\/[^/]*$/, '')}/dist/web/model.json`;
+
+            results.push(`<h2>Computed Model Path:</h2>`);
+            results.push(`<code style="color: green; font-weight: bold;">${modelPath}</code>`);
+
+            // Test in different contexts
+            results.push(`<h2>Test Cases:</h2>`);
+
+            const testCases = [
+                {
+                    desc: 'Root HTML file',
+                    origin: 'https://example.com',
+                    pathname: '/calibration.html',
+                    expected: 'https://example.com/dist/web/model.json'
+                },
+                {
+                    desc: 'Nested in experiments/',
+                    origin: 'https://example.com',
+                    pathname: '/experiments/calibration.html',
+                    expected: 'https://example.com/experiments/dist/web/model.json'
+                },
+                {
+                    desc: 'GitHub Pages',
+                    origin: 'https://kiante-fernandez.github.io',
+                    pathname: '/webgazer-qualtrics/experiments/calibration.html',
+                    expected: 'https://kiante-fernandez.github.io/webgazer-qualtrics/experiments/dist/web/model.json'
+                },
+                {
+                    desc: 'Localhost dev',
+                    origin: 'http://localhost:5173',
+                    pathname: '/experiments/calibration.html',
+                    expected: 'http://localhost:5173/experiments/dist/web/model.json'
+                }
+            ];
+
+            testCases.forEach(test => {
+                const computed = `${test.origin}${test.pathname.replace(/\/[^/]*$/, '')}/dist/web/model.json`;
+                const passed = computed === test.expected;
+                results.push(`
+                    <div style="margin: 10px 0; padding: 10px; border: 1px solid ${passed ? 'green' : 'red'}; background: ${passed ? '#e0ffe0' : '#ffe0e0'}">
+                        <strong>${test.desc}</strong><br>
+                        Origin: <code>${test.origin}</code><br>
+                        Pathname: <code>${test.pathname}</code><br>
+                        Computed: <code>${computed}</code><br>
+                        Expected: <code>${test.expected}</code><br>
+                        <strong style="color: ${passed ? 'green' : 'red'}">${passed ? '✓ PASS' : '✗ FAIL'}</strong>
+                    </div>
+                `);
+            });
+
+            // Try fetching the model
+            results.push(`<h2>Model Fetch Test:</h2>`);
+            results.push(`<p id="fetch-test">Testing...</p>`);
+
+            document.getElementById('results').innerHTML = results.join('<br>');
+
+            // Attempt to fetch
+            fetch(modelPath, { method: 'HEAD' })
+                .then(response => {
+                    if (response.ok) {
+                        document.getElementById('fetch-test').innerHTML =
+                            `<span style="color: green; font-weight: bold;">✓ Model file exists and is accessible!</span><br>` +
+                            `Status: ${response.status} ${response.statusText}`;
+                    } else {
+                        document.getElementById('fetch-test').innerHTML =
+                            `<span style="color: orange; font-weight: bold;">⚠ Model file returned status ${response.status}</span><br>` +
+                            `You may need to deploy the dist/ folder to this location.`;
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('fetch-test').innerHTML =
+                        `<span style="color: red; font-weight: bold;">✗ Failed to fetch model</span><br>` +
+                        `Error: ${error.message}<br>` +
+                        `Make sure dist/web/model.json exists at the computed path.`;
+                });
+        }
+
+        testModelPath();
+    </script>
+</body>
+</html>
