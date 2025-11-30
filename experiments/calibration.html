@@ -81,9 +81,12 @@
           console.log('Sent calibration data to parent window');
 
           // Switch to tracking mode after sending calibration-complete
+          // IMPORTANT: Wait 2s for jsPsych WebGazer extension to fully clean up
+          // before setting our own gaze listener
           setTimeout(function() {
+            console.log('[Calibration] jsPsych cleanup complete, initializing tracking mode...');
             initTrackingMode(model_key);
-          }, 100);
+          }, 2000);
         } else {
           // Standalone mode - display results
           console.log('Calibration complete!');
