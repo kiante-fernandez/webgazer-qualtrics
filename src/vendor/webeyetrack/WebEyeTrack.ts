@@ -98,9 +98,9 @@ export default class WebEyeTrack {
     this.clickTTL = clickTTL;
   }
 
-  async initialize(): Promise<void> {
+  async initialize(modelPath?: string): Promise<void> {
     await this.faceLandmarkerClient.initialize();
-    await this.blazeGaze.loadModel();
+    await this.blazeGaze.loadModel(modelPath);
     this.loaded = true;
   }
 

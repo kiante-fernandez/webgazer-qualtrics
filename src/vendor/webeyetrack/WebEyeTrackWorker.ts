@@ -12,7 +12,8 @@ self.onmessage = async (e) => {
   switch (type) {
     case 'init':
       tracker = new WebEyeTrack();
-      await tracker.initialize();
+      const modelPath = payload?.modelPath;
+      await tracker.initialize(modelPath);
       self.postMessage({ type: 'ready' });
       status = 'idle';
       break;

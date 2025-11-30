@@ -51,8 +51,11 @@ export default class WebEyeTrackProxy {
       }
     }
 
-    // Initialize the worker
-    this.worker.postMessage({ type: 'init' });
+    // Initialize the worker with model path
+    // Construct absolute URL for model (works in both dev and production)
+    const modelPath = `${window.location.origin}${window.location.pathname.replace(/\/[^/]*$/, '')}/dist/web/model.json`;
+    console.log('[WebEyeTrackProxy] Model path:', modelPath);
+    this.worker.postMessage({ type: 'init', payload: { modelPath } });
 
     // Add mouse handler for re-calibration
     window.addEventListener('click', (e: MouseEvent) => {

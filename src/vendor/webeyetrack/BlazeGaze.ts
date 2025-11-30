@@ -12,10 +12,21 @@ export default class BlazeGaze {
     }
 
     async loadModel(modelPath?: string): Promise<void> {
-        // Default path works for most deployments
-        // Can be overridden by passing a custom path
-        const defaultPath = './dist/web/model.json';
-        const path = modelPath || defaultPath;
+        // Use provided path or construct absolute path from worker/main context
+        // Workers need absolute URLs since relative paths don't resolve correctly
+        let path: string;
+
+        if (modelPath) {
+            path = modelPath;
+        } else {
+            // Fallback: try to construct absolute path
+            // This works in main thread but may fail in workers
+            const origin = typeof window !== 'undefined' ? window.location.origin : self.location.origin;
+            const pathname = typeof window !== 'undefined' ? window.location.pathname : '/';
+            const base = pathname.replace(/\/[^/]*$/, '');
+            path = `${origin}${base}/dist/web/model.json`;
+            console.warn('[BlazeGaze] No model path provided, using fallback:', path);
+        }
 
         try {
             // Load model from specified path
