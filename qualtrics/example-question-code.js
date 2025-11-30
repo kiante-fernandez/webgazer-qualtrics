@@ -135,95 +135,100 @@ Qualtrics.SurveyEngine.addOnload(function() {
 
 // JAVASCRIPT CODE FOR STANDARD TRACKING QUESTIONS:
 /*
-Qualtrics.SurveyEngine.addOnload(function() {
-  // ⚠️ IMPORTANT: Change this to match your question number (Q2, Q3, Q4, etc.)
-  const questionId = 'Q2';  // ← UPDATE THIS FOR EACH QUESTION
+// Use closure to share data between addOnload and addOnPageSubmit
+// (this context doesn't work reliably in Qualtrics)
+(function() {
+  let gazeData_Q2 = [];
+  let gazeListener_Q2 = null;
+  let viewportInterval_Q2 = null;
+  let trackingStartTime_Q2 = 0;
 
-  // Get the persistent iframe (created by header)
-  const iframe = document.getElementById('calibration-iframe');
+  Qualtrics.SurveyEngine.addOnload(function() {
+    // ⚠️ IMPORTANT: Change this to match your question number (Q2, Q3, Q4, etc.)
+    const questionId = 'Q2';  // ← UPDATE THIS FOR EACH QUESTION
 
-  if (!iframe) {
-    console.error('[Q' + questionId.substring(1) + '] Persistent iframe not found!');
-    return;
-  }
+    // Get the persistent iframe (created by header)
+    const iframe = document.getElementById('calibration-iframe');
 
-  let gazeData = [];
-  let trackingStartTime = performance.now();
-
-  // Iframe is already in tracking mode (from Q1), so start tracking immediately
-  console.log('[Q' + questionId.substring(1) + '] ▶️ Sending start-tracking command');
-  iframe.contentWindow.postMessage({
-    type: 'start-tracking',
-    questionId: questionId,
-    questionStartTime: trackingStartTime
-  }, '*');
-
-  // Send viewport updates for coordinate transformation (handles scrolling)
-  const viewportInterval = setInterval(function() {
-    if (iframe.contentWindow) {
-      iframe.contentWindow.postMessage({
-        type: 'viewport-update',
-        scrollX: window.scrollX,
-        scrollY: window.scrollY
-      }, '*');
+    if (!iframe) {
+      console.error('[Q' + questionId.substring(1) + '] Persistent iframe not found!');
+      return;
     }
-  }, 100);
-  this.viewportInterval = viewportInterval;
 
-  // Listen for gaze data from tracking iframe
-  const gazeListener = function(event) {
-    if (event.data.type === 'gaze-data') {
-      // Log first 5 data points received
-      if (gazeData.length < 5) {
-        console.log('[Q' + questionId.substring(1) + '] 📥 Received gaze-data #' + (gazeData.length + 1) + ':', event.data);
+    // Reset closure variables
+    gazeData_Q2 = [];
+    trackingStartTime_Q2 = performance.now();
+
+    // Iframe is already in tracking mode (from Q1), so start tracking immediately
+    console.log('[Q' + questionId.substring(1) + '] ▶️ Sending start-tracking command');
+    iframe.contentWindow.postMessage({
+      type: 'start-tracking',
+      questionId: questionId,
+      questionStartTime: trackingStartTime_Q2
+    }, '*');
+
+    // Send viewport updates for coordinate transformation (handles scrolling)
+    viewportInterval_Q2 = setInterval(function() {
+      if (iframe.contentWindow) {
+        iframe.contentWindow.postMessage({
+          type: 'viewport-update',
+          scrollX: window.scrollX,
+          scrollY: window.scrollY
+        }, '*');
       }
+    }, 100);
 
-      // Log every 100th data point
-      if ((gazeData.length + 1) % 100 === 0) {
-        console.log('[Q' + questionId.substring(1) + '] 📊 Received ' + (gazeData.length + 1) + ' data points');
+    // Listen for gaze data from tracking iframe
+    gazeListener_Q2 = function(event) {
+      if (event.data.type === 'gaze-data') {
+        // Log first 5 data points received
+        if (gazeData_Q2.length < 5) {
+          console.log('[Q' + questionId.substring(1) + '] 📥 Received gaze-data #' + (gazeData_Q2.length + 1) + ':', event.data);
+        }
+
+        // Log every 100th data point
+        if ((gazeData_Q2.length + 1) % 100 === 0) {
+          console.log('[Q' + questionId.substring(1) + '] 📊 Received ' + (gazeData_Q2.length + 1) + ' data points');
+        }
+
+        gazeData_Q2.push({
+          t: Math.round(event.data.timestamp - trackingStartTime_Q2),
+          x: Math.round(event.data.x),
+          y: Math.round(event.data.y)
+        });
       }
+    };
+    window.addEventListener('message', gazeListener_Q2);
+  });
 
-      gazeData.push({
-        t: Math.round(event.data.timestamp - trackingStartTime),
-        x: Math.round(event.data.x),
-        y: Math.round(event.data.y)
-      });
+  Qualtrics.SurveyEngine.addOnPageSubmit(function() {
+    const questionId = 'Q2';  // ← UPDATE THIS TO MATCH ABOVE
+
+    console.log('[Q' + questionId.substring(1) + '] 💾 Saving gaze data. Sample count:', gazeData_Q2.length);
+
+    const trackingIframe = document.getElementById('calibration-iframe');
+
+    // Pause tracking during page transition
+    if (trackingIframe) {
+      trackingIframe.contentWindow.postMessage({ type: 'pause-tracking' }, '*');
     }
-  };
-  window.addEventListener('message', gazeListener);
-  this.gazeListener = gazeListener;
-  this.gazeData = gazeData;
-  this.trackingStartTime = trackingStartTime;
-});
 
-Qualtrics.SurveyEngine.addOnPageSubmit(function() {
-  const questionId = 'Q2';  // ← UPDATE THIS TO MATCH ABOVE
+    // Clean up
+    if (viewportInterval_Q2) {
+      clearInterval(viewportInterval_Q2);
+    }
+    if (gazeListener_Q2) {
+      window.removeEventListener('message', gazeListener_Q2);
+    }
 
-  console.log('[Q' + questionId.substring(1) + '] 💾 Saving gaze data. Sample count:', this.gazeData ? this.gazeData.length : 0);
+    // Save gaze data to embedded data (compressed format)
+    const compressed = gazeData_Q2.map(d => `${d.t},${d.x},${d.y}`).join('|');
 
-  const trackingIframe = document.getElementById('calibration-iframe');
+    console.log('[Q' + questionId.substring(1) + '] 💾 Compressed data length:', compressed.length, 'bytes');
 
-  // Pause tracking during page transition
-  if (trackingIframe) {
-    trackingIframe.contentWindow.postMessage({ type: 'pause-tracking' }, '*');
-  }
-
-  // Clean up
-  if (this.viewportInterval) {
-    clearInterval(this.viewportInterval);
-  }
-  if (this.gazeListener) {
-    window.removeEventListener('message', this.gazeListener);
-  }
-
-  // Save gaze data to embedded data (compressed format)
-  const gazeDataArray = this.gazeData || [];
-  const compressed = gazeDataArray.map(d => `${d.t},${d.x},${d.y}`).join('|');
-
-  console.log('[Q' + questionId.substring(1) + '] 💾 Compressed data length:', compressed.length, 'bytes');
-
-  Qualtrics.SurveyEngine.setEmbeddedData('gaze_' + questionId, compressed);
-});
+    Qualtrics.SurveyEngine.setEmbeddedData('gaze_' + questionId, compressed);
+  });
+})();
 */
 
 // ============================================================================
@@ -326,92 +331,96 @@ Qualtrics.SurveyEngine.addOnPageSubmit(function() {
 */
 
 // JAVASCRIPT CODE FOR RECALIBRATION QUESTIONS:
+// Use closure to share data between addOnload and addOnPageSubmit
 /*
-Qualtrics.SurveyEngine.addOnload(function() {
-  // ⚠️ IMPORTANT: Change this to match your question number (Q10, Q20, Q30, etc.)
-  const questionId = 'Q10';  // ← UPDATE THIS FOR EACH RECALIBRATION QUESTION
+(function() {
+  let gazeData_Q10 = [];
+  let gazeListener_Q10 = null;
+  let viewportInterval_Q10 = null;
+  let trackingStartTime_Q10 = 0;
 
-  // Get the persistent iframe (created by header)
-  const iframe = document.getElementById('calibration-iframe');
+  Qualtrics.SurveyEngine.addOnload(function() {
+    // ⚠️ IMPORTANT: Change this to match your question number (Q10, Q20, Q30, etc.)
+    const questionId = 'Q10';  // ← UPDATE THIS FOR EACH RECALIBRATION QUESTION
 
-  if (!iframe) {
-    console.error('[Q' + questionId.substring(1) + '] Persistent iframe not found!');
-    return;
-  }
+    // Get the persistent iframe (created by header)
+    const iframe = document.getElementById('calibration-iframe');
 
-  let gazeData = [];
-  let trackingStartTime = performance.now();
-
-  // Iframe is already in tracking mode, so start tracking immediately
-  // (tracks during prompt and recalibration)
-  console.log('[Q' + questionId.substring(1) + '] ▶️ Sending start-tracking command');
-  iframe.contentWindow.postMessage({
-    type: 'start-tracking',
-    questionId: questionId,
-    questionStartTime: trackingStartTime
-  }, '*');
-
-  // Send viewport updates
-  const viewportInterval = setInterval(function() {
-    if (iframe.contentWindow) {
-      iframe.contentWindow.postMessage({
-        type: 'viewport-update',
-        scrollX: window.scrollX,
-        scrollY: window.scrollY
-      }, '*');
+    if (!iframe) {
+      console.error('[Q' + questionId.substring(1) + '] Persistent iframe not found!');
+      return;
     }
-  }, 100);
-  this.viewportInterval = viewportInterval;
 
-  // Listen for gaze data
-  const gazeListener = function(event) {
-    if (event.data.type === 'gaze-data') {
-      // Log first data point to confirm tracking is working
-      if (gazeData.length === 0) {
-        console.log('[Q' + questionId.substring(1) + '] ✅ First gaze data received:', event.data);
+    // Reset closure variables
+    gazeData_Q10 = [];
+    trackingStartTime_Q10 = performance.now();
+
+    // Iframe is already in tracking mode, so start tracking immediately
+    // (tracks during prompt and recalibration)
+    console.log('[Q' + questionId.substring(1) + '] ▶️ Sending start-tracking command');
+    iframe.contentWindow.postMessage({
+      type: 'start-tracking',
+      questionId: questionId,
+      questionStartTime: trackingStartTime_Q10
+    }, '*');
+
+    // Send viewport updates
+    viewportInterval_Q10 = setInterval(function() {
+      if (iframe.contentWindow) {
+        iframe.contentWindow.postMessage({
+          type: 'viewport-update',
+          scrollX: window.scrollX,
+          scrollY: window.scrollY
+        }, '*');
       }
+    }, 100);
 
-      gazeData.push({
-        t: Math.round(event.data.timestamp - trackingStartTime),
-        x: Math.round(event.data.x),
-        y: Math.round(event.data.y)
-      });
+    // Listen for gaze data
+    gazeListener_Q10 = function(event) {
+      if (event.data.type === 'gaze-data') {
+        // Log first data point to confirm tracking is working
+        if (gazeData_Q10.length === 0) {
+          console.log('[Q' + questionId.substring(1) + '] ✅ First gaze data received:', event.data);
+        }
+
+        gazeData_Q10.push({
+          t: Math.round(event.data.timestamp - trackingStartTime_Q10),
+          x: Math.round(event.data.x),
+          y: Math.round(event.data.y)
+        });
+      }
+    };
+    window.addEventListener('message', gazeListener_Q10);
+  });
+
+  Qualtrics.SurveyEngine.addOnPageSubmit(function() {
+    const questionId = 'Q10';  // ← UPDATE THIS TO MATCH ABOVE
+
+    console.log('[Q' + questionId.substring(1) + '] 💾 Saving gaze data. Sample count:', gazeData_Q10.length);
+
+    const trackingIframe = document.getElementById('calibration-iframe');
+
+    // Pause tracking
+    if (trackingIframe) {
+      trackingIframe.contentWindow.postMessage({ type: 'pause-tracking' }, '*');
     }
-  };
-  window.addEventListener('message', gazeListener);
-  this.gazeListener = gazeListener;
-  this.gazeData = gazeData;
-  this.trackingStartTime = trackingStartTime;
-});
 
-Qualtrics.SurveyEngine.addOnPageSubmit(function() {
-  const questionId = 'Q10';  // ← UPDATE THIS TO MATCH ABOVE
+    // Cleanup
+    if (viewportInterval_Q10) {
+      clearInterval(viewportInterval_Q10);
+    }
+    if (gazeListener_Q10) {
+      window.removeEventListener('message', gazeListener_Q10);
+    }
 
-  console.log('[Q' + questionId.substring(1) + '] 💾 Saving gaze data. Sample count:', this.gazeData ? this.gazeData.length : 0);
+    // Save gaze data
+    const compressed = gazeData_Q10.map(d => `${d.t},${d.x},${d.y}`).join('|');
 
-  const trackingIframe = document.getElementById('calibration-iframe');
+    console.log('[Q' + questionId.substring(1) + '] 💾 Compressed data length:', compressed.length, 'bytes');
 
-  // Pause tracking
-  if (trackingIframe) {
-    trackingIframe.contentWindow.postMessage({ type: 'pause-tracking' }, '*');
-  }
-
-  // Cleanup
-  if (this.viewportInterval) {
-    clearInterval(this.viewportInterval);
-  }
-  if (this.gazeListener) {
-    window.removeEventListener('message', this.gazeListener);
-  }
-
-  // Save gaze data
-  const gazeDataArray = this.gazeData || [];
-  const compressed = gazeDataArray.map(d => `${d.t},${d.x},${d.y}`).join('|');
-
-  console.log('[Q' + questionId.substring(1) + '] 💾 Compressed data length:', compressed.length, 'bytes');
-
-  Qualtrics.SurveyEngine.setEmbeddedData('gaze_' + questionId, compressed);
-});
+    Qualtrics.SurveyEngine.setEmbeddedData('gaze_' + questionId, compressed);
+  });
+})();
 */
 
 // ============================================================================
