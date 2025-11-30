@@ -147,13 +147,15 @@ Qualtrics.SurveyEngine.addOnload(function() {
       Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_validation', JSON.stringify(event.data.validation_data));
       Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_model_key', event.data.model_key);
 
-      // Hide iframe (but keep it alive!)
-      iframe.style.width = '1px';
-      iframe.style.height = '1px';
+      // Hide iframe (but keep it alive and rendering!)
+      // Use opacity: 0 instead of visibility: hidden to avoid RAF throttling
+      // Keep full size to preserve coordinate scaling
+      iframe.style.width = '100%';
+      iframe.style.height = '100vh';
       iframe.style.position = 'fixed';
-      iframe.style.bottom = '0';
+      iframe.style.top = '0';
       iframe.style.left = '0';
-      iframe.style.visibility = 'hidden';
+      iframe.style.opacity = '0';
       iframe.style.pointerEvents = 'none';
       iframe.style.zIndex = '-1';
 
