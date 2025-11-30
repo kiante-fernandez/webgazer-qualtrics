@@ -253,9 +253,11 @@ Qualtrics.SurveyEngine.addOnload(function() {
       window.removeEventListener('message', gazeListener);
     }
 
-    const compressed = gazeData.map(d => `${d.t},${d.x},${d.y}`).join('|');
-    console.log('[' + questionId + '] 💾 Compressed data length:', compressed.length, 'bytes');
-    Qualtrics.SurveyEngine.setEmbeddedData('gaze_' + questionId, compressed);
+    // Save as JSON format for reliability
+    const dataToSave = JSON.stringify(gazeData);
+    console.log('[' + questionId + '] 💾 Data length:', dataToSave.length, 'bytes');
+    console.log('[' + questionId + '] 💾 First 200 chars:', dataToSave.substring(0, 200));
+    Qualtrics.SurveyEngine.setEmbeddedData('gaze_' + questionId, dataToSave);
   });
 })('Q2');  // ← Change ONLY this to your questionId, e.g., ('Q3')
 ```
