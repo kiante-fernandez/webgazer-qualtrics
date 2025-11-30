@@ -271,18 +271,45 @@
       // Just set up gaze listener for continuous streaming
       console.log('[Calibration] Setting up tracking gaze listener...');
 
+      // Test WebGazer prediction capability
+      var predictionTestCount = 0;
+      var predictionTestInterval = setInterval(function() {
+        webgazer.getCurrentPrediction().then(function(prediction) {
+          predictionTestCount++;
+          if (predictionTestCount <= 5) {
+            console.log('[Calibration] 🎯 Prediction test #' + predictionTestCount + ':', prediction);
+          }
+          if (predictionTestCount >= 5) {
+            clearInterval(predictionTestInterval);
+            console.log('[Calibration] ✅ WebGazer is producing predictions');
+          }
+        }).catch(function(err) {
+          console.error('[Calibration] ❌ Prediction test failed:', err);
+          clearInterval(predictionTestInterval);
+        });
+      }, 500);
+
       var gazeCallbackCount = 0;
       var gazeDataSentCount = 0;
 
       webgazer.setGazeListener(function(data, elapsedTime) {
         gazeCallbackCount++;
 
-        // Log first few callbacks to verify listener is working
-        if (gazeCallbackCount <= 3) {
+        // Log first 10 callbacks with full detail
+        if (gazeCallbackCount <= 10) {
           console.log('[Calibration] Gaze callback #' + gazeCallbackCount + ', isTracking:', isTracking, ', data:', data);
         }
 
+        // Log every 100th callback to show it's still running
+        if (gazeCallbackCount % 100 === 0) {
+          console.log('[Calibration] 📊 Still tracking - callback #' + gazeCallbackCount);
+        }
+
         if (!isTracking) {
+          // Log why we're blocking (first 3 times only)
+          if (gazeCallbackCount <= 3) {
+            console.log('[Calibration] ⏸️ Blocking data - isTracking is false');
+          }
           return;
         }
 
@@ -298,9 +325,14 @@
           lastSampleTime = now;
           gazeDataSentCount++;
 
-          // Log first data point sent
-          if (gazeDataSentCount === 1) {
-            console.log('[Calibration] Sending first gaze-data to parent:', data);
+          // Log first 5 data points sent
+          if (gazeDataSentCount <= 5) {
+            console.log('[Calibration] 📤 Sending gaze-data #' + gazeDataSentCount + ' to parent:', data);
+          }
+
+          // Log every 50th data point
+          if (gazeDataSentCount % 50 === 0) {
+            console.log('[Calibration] 📊 Sent ' + gazeDataSentCount + ' data points so far');
           }
 
           // Transform coordinates: add scroll offset
@@ -318,6 +350,8 @@
           // Send to parent window
           if (window.parent !== window) {
             window.parent.postMessage(transformedGaze, '*');
+          } else {
+            console.warn('[Calibration] ⚠️ No parent window - running standalone?');
           }
         }
       });
@@ -344,16 +378,20 @@
 
       switch(data.type) {
         case 'start-tracking':
-          console.log('[Calibration] Starting tracking for question:', data.questionId);
-          console.log('[Calibration] WebGazer status - isReady:', webgazer.isReady());
+          console.log('[Calibration] 🟢 START-TRACKING received for:', data.questionId);
+          console.log('[Calibration] 🔍 WebGazer isReady:', webgazer.isReady());
+          console.log('[Calibration] 🔍 Before - isTracking:', isTracking);
           isTracking = true;
+          console.log('[Calibration] 🔍 After - isTracking:', isTracking);
           gazeCallbackCount = 0; // Reset counter for this question
           gazeDataSentCount = 0;
+          console.log('[Calibration] ✅ Tracking ACTIVE for ' + data.questionId);
           break;
 
         case 'pause-tracking':
-          console.log('[Calibration] Pausing tracking');
+          console.log('[Calibration] ⏸️ PAUSE-TRACKING received');
           isTracking = false;
+          console.log('[Calibration] 📊 Final stats - callbacks:', gazeCallbackCount, ', data points sent:', gazeDataSentCount);
           break;
 
         case 'resume-tracking':

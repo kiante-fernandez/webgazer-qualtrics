@@ -173,9 +173,14 @@ Qualtrics.SurveyEngine.addOnload(function() {
   // Listen for gaze data from tracking iframe
   const gazeListener = function(event) {
     if (event.data.type === 'gaze-data') {
-      // Log first data point to confirm tracking is working
-      if (gazeData.length === 0) {
-        console.log('[Q' + questionId.substring(1) + '] ✅ First gaze data received:', event.data);
+      // Log first 5 data points received
+      if (gazeData.length < 5) {
+        console.log('[Q' + questionId.substring(1) + '] 📥 Received gaze-data #' + (gazeData.length + 1) + ':', event.data);
+      }
+
+      // Log every 100th data point
+      if ((gazeData.length + 1) % 100 === 0) {
+        console.log('[Q' + questionId.substring(1) + '] 📊 Received ' + (gazeData.length + 1) + ' data points');
       }
 
       gazeData.push({
