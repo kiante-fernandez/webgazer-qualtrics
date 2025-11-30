@@ -305,10 +305,18 @@
         gazeDot.style.left = sample.x + 'px';
         gazeDot.style.top = sample.y + 'px';
 
-        if (!isTracking) return;
+        if (!isTracking) {
+          if (sampleCount % 60 === 0) {
+            console.log('[Calibration] ⏸️ isTracking is FALSE, blocking postMessage (sample #' + sampleCount + ')');
+          }
+          return;
+        }
 
         // Stream data to parent window (Qualtrics)
         if (window.parent !== window) {
+          if (sampleCount % 60 === 0) {
+            console.log('[Calibration] 👁️ isTracking is TRUE, sending gaze-data to parent (sample #' + sampleCount + ')');
+          }
           window.parent.postMessage({
             type: 'gaze-data',
             timestamp: sample.perf_t,
@@ -337,11 +345,17 @@
       var data = event.data;
       switch (data.type) {
         case 'start-tracking':
+          console.log('[Calibration] 🟢 Received START-TRACKING message');
+          console.log('[Calibration] 🔍 Before: isTracking =', isTracking);
           isTracking = true;
           gazeBuffer = [];
+          console.log('[Calibration] 🔍 After: isTracking =', isTracking);
+          console.log('[Calibration] ✅ Tracking ACTIVE, buffer cleared');
           break;
         case 'pause-tracking':
+          console.log('[Calibration] ⏸️ Received PAUSE-TRACKING message');
           isTracking = false;
+          console.log('[Calibration] 📊 Sending', gazeBuffer.length, 'buffered samples to parent');
           if (window.parent !== window) {
             window.parent.postMessage({
               type: 'gaze-data-batch',
