@@ -90,7 +90,8 @@ https://kiante-fernandez.github.io/webgazer-qualtrics/experiments/calibration.ht
 ```
 
 Check browser console for (in order):
-- [ ] `[WebEyeTrackProxy] Model path: https://kiante-fernandez.github.io/webgazer-qualtrics/experiments/dist/web/model.json`
+- [ ] `[WebEyeTrackProxy] Repo base: /webgazer-qualtrics`
+- [ ] `[WebEyeTrackProxy] Model path: https://kiante-fernandez.github.io/webgazer-qualtrics/dist/web/model.json`
 - [ ] `[WebEyeTrackProxy] Worker is ready`
 - [ ] `✅ BlazeGaze model loaded successfully from: [path]`
 - [ ] No CORS errors
@@ -172,9 +173,19 @@ Use code from `qualtrics/example-question-code.js`:
   - **Cause**: Old version cached - relative paths don't work in Web Workers
   - **Fix**: Hard refresh (Cmd+Shift+R / Ctrl+Shift+R) to get latest bundle
   - **Verify**: Console should show `[WebEyeTrackProxy] Model path: https://...` (absolute URL)
-- Check: `dist/web/model.json` exists on GitHub Pages (visit URL directly)
-- Check: No CORS errors in Network tab
-- Check: Console shows absolute model path (not relative)
+
+- **Error**: `Request to https://.../experiments/dist/web/model.json failed with status code 404`
+  - **Cause**: Model is at repo root, not in experiments folder
+  - **Expected Path**: `https://kiante-fernandez.github.io/webgazer-qualtrics/dist/web/model.json`
+  - **Wrong Path**: `https://kiante-fernandez.github.io/webgazer-qualtrics/experiments/dist/web/model.json`
+  - **Fix**: Hard refresh to get latest bundle (v12983ad or newer)
+  - **Verify**: Console shows `[WebEyeTrackProxy] Repo base: /webgazer-qualtrics` (not `/webgazer-qualtrics/experiments`)
+
+- **General checks**:
+  - Visit `https://kiante-fernandez.github.io/webgazer-qualtrics/dist/web/model.json` directly in browser
+  - Should download or display JSON (not 404)
+  - Check Network tab for CORS errors
+  - Verify console shows repo base correctly extracted
 
 ### "Worker not ready"
 - Check: Web Workers enabled in browser
