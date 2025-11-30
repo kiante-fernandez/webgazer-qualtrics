@@ -279,13 +279,13 @@ Qualtrics.SurveyEngine.addOnload(function() {
       // Hide calibration iframe and return to tracking mode
       const calibrationIframe = document.getElementById('calibration-iframe');
       if (calibrationIframe) {
-        // Use opacity: 0 to avoid RAF throttling, keep full size for coordinates
+        // Use opacity: 0.01 to avoid RAF throttling, keep full size for coordinates
         calibrationIframe.style.width = '100%';
         calibrationIframe.style.height = '100vh';
         calibrationIframe.style.position = 'fixed';
         calibrationIframe.style.top = '0';
         calibrationIframe.style.left = '0';
-        calibrationIframe.style.opacity = '0';
+        calibrationIframe.style.opacity = '0.01';
         calibrationIframe.style.border = 'none';
         calibrationIframe.style.pointerEvents = 'none';
         calibrationIframe.style.zIndex = '-1';

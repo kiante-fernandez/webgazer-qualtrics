@@ -128,43 +128,48 @@ Qualtrics.SurveyEngine.addOnload(function() {
   }
 
   // Make iframe visible and full-size for calibration
-  iframe.style.width = '100%';
-  iframe.style.height = '800px';
-  iframe.style.position = 'relative';
-  iframe.style.visibility = 'visible';
-  iframe.style.pointerEvents = 'auto';
-  iframe.style.zIndex = '1';
-
-  // Listen for calibration-complete message from iframe
-  window.addEventListener('message', function(event) {
-    if (event.data.type === 'calibration-complete') {
-      console.log('[Q1] Calibration complete, hiding iframe');
-
-      // Save calibration data to embedded data
-      Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_offset', event.data.average_offset);
-      Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_recalibrated', event.data.recalibrated);
-      Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_attempts', event.data.calibration_attempts);
-      Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_validation', JSON.stringify(event.data.validation_data));
-      Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_model_key', event.data.model_key);
-
-      // Hide iframe (but keep it alive and rendering!)
-      // Use opacity: 0 instead of visibility: hidden to avoid RAF throttling
-      // Keep full size to preserve coordinate scaling
-      iframe.style.width = '100%';
-      iframe.style.height = '100vh';
-      iframe.style.position = 'fixed';
-      iframe.style.top = '0';
-      iframe.style.left = '0';
-      iframe.style.opacity = '0';
-      iframe.style.pointerEvents = 'none';
-      iframe.style.zIndex = '-1';
-
-      // Advance to next question after brief delay
-      setTimeout(function() {
-        document.getElementById('NextButton').click();
-      }, 1000);
-    }
+  Object.assign(iframe.style, {
+    width: '100%',
+    height: '800px',
+    position: 'relative',
+    visibility: 'visible',
+    pointerEvents: 'auto',
+    zIndex: '1'
   });
+
+  const messageHandler = function(event) {
+    if (!event.data || event.data.type !== 'calibration-complete') return;
+
+    console.log('[Q1] Calibration complete, hiding iframe');
+
+    // Save calibration data to embedded data
+    Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_offset', event.data.average_offset);
+    Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_recalibrated', event.data.recalibrated);
+    Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_attempts', event.data.calibration_attempts);
+    Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_validation', JSON.stringify(event.data.validation_data));
+    Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_model_key', event.data.model_key);
+
+    // Hide iframe but keep it rendering (preserve coordinate scaling)
+    Object.assign(iframe.style, {
+      width: '100%',
+      height: '100vh',
+      position: 'fixed',
+      top: '0',
+      left: '0',
+      opacity: '0.01',
+      pointerEvents: 'none',
+      zIndex: '-1',
+      visibility: 'visible'
+    });
+
+    // Advance to next question after brief delay
+    setTimeout(function() {
+      const nextBtn = document.getElementById('NextButton');
+      if (nextBtn) nextBtn.click();
+    }, 1000);
+  };
+
+  window.addEventListener('message', messageHandler);
 });
 ```
 
@@ -186,7 +191,7 @@ Qualtrics.SurveyEngine.addOnload(function() {
 3. **Copy and paste this code**:
 
 ```javascript
-(function(questionId) {  // ← Pass your Q# here, e.g., 'Q3'
+(function(questionId) {
   let gazeData = [];
   let gazeListener = null;
   let viewportInterval = null;
@@ -194,15 +199,11 @@ Qualtrics.SurveyEngine.addOnload(function() {
 
   Qualtrics.SurveyEngine.addOnload(function() {
     const iframe = document.getElementById('calibration-iframe');
-    if (!iframe) {
-      console.error('[' + questionId + '] Persistent iframe not found!');
-      return;
-    }
+    if (!iframe) return;
 
     gazeData = [];
     trackingStartTime = performance.now();
 
-    console.log('[' + questionId + '] ▶️ Sending start-tracking command');
     iframe.contentWindow.postMessage({
       type: 'start-tracking',
       questionId: questionId,
@@ -220,46 +221,57 @@ Qualtrics.SurveyEngine.addOnload(function() {
     }, 100);
 
     gazeListener = function(event) {
-      if (event.data.type === 'gaze-data') {
-        if (gazeData.length < 5) {
-          console.log('[' + questionId + '] 📥 Received gaze-data #' + (gazeData.length + 1) + ':', event.data);
-        }
-        if ((gazeData.length + 1) % 100 === 0) {
-          console.log('[' + questionId + '] 📊 Received ' + (gazeData.length + 1) + ' data points');
-        }
+      try {
+        if (!event.data || !event.data.type) return;
 
-        gazeData.push({
-          t: Math.round(event.data.timestamp - trackingStartTime),
-          x: Math.round(event.data.x),
-          y: Math.round(event.data.y)
-        });
+        if (event.data.type === 'gaze-data') {
+          gazeData.push({
+            t: Math.round(event.data.timestamp - trackingStartTime),
+            x: Math.round(event.data.x),
+            y: Math.round(event.data.y)
+          });
+        } else if (event.data.type === 'gaze-data-batch' && Array.isArray(event.data.samples)) {
+          event.data.samples.forEach(s => {
+            gazeData.push({
+              t: Math.round(s.perf_t - trackingStartTime),
+              x: Math.round(s.x),
+              y: Math.round(s.y)
+            });
+          });
+        }
+      } catch (e) {
+        // silently ignore
       }
     };
+
     window.addEventListener('message', gazeListener);
   });
 
   Qualtrics.SurveyEngine.addOnPageSubmit(function() {
-    console.log('[' + questionId + '] 💾 Saving gaze data. Sample count:', gazeData.length);
-
-    const trackingIframe = document.getElementById('calibration-iframe');
-    if (trackingIframe) {
-      trackingIframe.contentWindow.postMessage({ type: 'pause-tracking' }, '*');
+    const iframe = document.getElementById('calibration-iframe');
+    if (iframe && iframe.contentWindow) {
+      iframe.contentWindow.postMessage({ type: 'pause-tracking' }, '*');
     }
 
     if (viewportInterval) {
       clearInterval(viewportInterval);
-    }
-    if (gazeListener) {
-      window.removeEventListener('message', gazeListener);
+      viewportInterval = null;
     }
 
-    // Save as JSON format for reliability
-    const dataToSave = JSON.stringify(gazeData);
-    console.log('[' + questionId + '] 💾 Data length:', dataToSave.length, 'bytes');
-    console.log('[' + questionId + '] 💾 First 200 chars:', dataToSave.substring(0, 200));
-    Qualtrics.SurveyEngine.setEmbeddedData('gaze_' + questionId, dataToSave);
+    setTimeout(function() {
+      if (gazeListener) {
+        window.removeEventListener('message', gazeListener);
+        gazeListener = null;
+      }
+      try {
+        const dataToSave = JSON.stringify(gazeData);
+        Qualtrics.SurveyEngine.setEmbeddedData('gaze_' + questionId, dataToSave);
+      } catch (e) {
+        Qualtrics.SurveyEngine.setEmbeddedData('gaze_' + questionId, '[]');
+      }
+    }, 200);
   });
-})('Q2');  // ← Change ONLY this to your questionId, e.g., ('Q3')
+})('Q2');
 ```
 
 4. **Change ONLY the last line** to match your question number:
@@ -316,13 +328,14 @@ Qualtrics.SurveyEngine.addOnload(function() {
     if (event.data.type === 'calibration-complete') {
       const calibrationIframe = document.getElementById('calibration-iframe');
       if (calibrationIframe) {
+        // Use opacity: 0.01 to avoid RAF throttling, keep full size for coordinates
+        calibrationIframe.style.width = '100%';
+        calibrationIframe.style.height = '100vh';
         calibrationIframe.style.position = 'fixed';
-        calibrationIframe.style.bottom = '0';
+        calibrationIframe.style.top = '0';
         calibrationIframe.style.left = '0';
-        calibrationIframe.style.width = '1px';
-        calibrationIframe.style.height = '1px';
+        calibrationIframe.style.opacity = '0.01';
         calibrationIframe.style.border = 'none';
-        calibrationIframe.style.visibility = 'hidden';
         calibrationIframe.style.pointerEvents = 'none';
         calibrationIframe.style.zIndex = '-1';
         document.body.appendChild(calibrationIframe);
@@ -343,91 +356,87 @@ Qualtrics.SurveyEngine.addOnload(function() {
 5. **Copy and paste this JavaScript**:
 
 ```javascript
-Qualtrics.SurveyEngine.addOnload(function() {
-  const questionId = 'Q10';  // ⚠️ UPDATE FOR EACH RECALIBRATION QUESTION
-
-  // Get the persistent iframe (created by header)
-  const iframe = document.getElementById('calibration-iframe');
-
-  if (!iframe) {
-    console.error('[Q' + questionId.substring(1) + '] Persistent iframe not found!');
-    return;
-  }
-
+(function(questionId) {  // ← Pass your Q# here, e.g., 'Q20'
   let gazeData = [];
-  let trackingStartTime = performance.now();
+  let gazeListener = null;
+  let viewportInterval = null;
+  let trackingStartTime = 0;
 
-  // Iframe is already in tracking mode, so start tracking immediately
-  // (tracks during prompt and recalibration)
-  console.log('[Q' + questionId.substring(1) + '] ▶️ Sending start-tracking command');
-  iframe.contentWindow.postMessage({
-    type: 'start-tracking',
-    questionId: questionId,
-    questionStartTime: trackingStartTime
-  }, '*');
-
-  // Send viewport updates
-  const viewportInterval = setInterval(function() {
-    if (iframe.contentWindow) {
-      iframe.contentWindow.postMessage({
-        type: 'viewport-update',
-        scrollX: window.scrollX,
-        scrollY: window.scrollY
-      }, '*');
+  Qualtrics.SurveyEngine.addOnload(function() {
+    const iframe = document.getElementById('calibration-iframe');
+    if (!iframe) {
+      console.error('[' + questionId + '] Persistent iframe not found!');
+      return;
     }
-  }, 100);
-  this.viewportInterval = viewportInterval;
 
-  const gazeListener = function(event) {
-    if (event.data.type === 'gaze-data') {
-      // Log first data point to confirm tracking is working
-      if (gazeData.length === 0) {
-        console.log('[Q' + questionId.substring(1) + '] ✅ First gaze data received:', event.data);
+    gazeData = [];
+    trackingStartTime = performance.now();
+
+    // Iframe is already in tracking mode, so start tracking immediately
+    // (tracks during prompt and recalibration)
+    console.log('[' + questionId + '] ▶️ Sending start-tracking command');
+    iframe.contentWindow.postMessage({
+      type: 'start-tracking',
+      questionId: questionId,
+      questionStartTime: trackingStartTime
+    }, '*');
+
+    viewportInterval = setInterval(function() {
+      if (iframe.contentWindow) {
+        iframe.contentWindow.postMessage({
+          type: 'viewport-update',
+          scrollX: window.scrollX,
+          scrollY: window.scrollY
+        }, '*');
       }
+    }, 100);
 
-      gazeData.push({
-        t: Math.round(event.data.timestamp - trackingStartTime),
-        x: Math.round(event.data.x),
-        y: Math.round(event.data.y)
-      });
+    gazeListener = function(event) {
+      if (event.data.type === 'gaze-data') {
+        if (gazeData.length === 0) {
+          console.log('[' + questionId + '] ✅ First gaze data received:', event.data);
+        }
+
+        gazeData.push({
+          t: Math.round(event.data.timestamp - trackingStartTime),
+          x: Math.round(event.data.x),
+          y: Math.round(event.data.y)
+        });
+      }
+    };
+    window.addEventListener('message', gazeListener);
+  });
+
+  Qualtrics.SurveyEngine.addOnPageSubmit(function() {
+    console.log('[' + questionId + '] 💾 Saving gaze data. Sample count:', gazeData.length);
+
+    const trackingIframe = document.getElementById('calibration-iframe');
+    if (trackingIframe) {
+      trackingIframe.contentWindow.postMessage({ type: 'pause-tracking' }, '*');
     }
-  };
-  window.addEventListener('message', gazeListener);
-  this.gazeListener = gazeListener;
-  this.gazeData = gazeData;
-  this.trackingStartTime = trackingStartTime;
-});
 
-Qualtrics.SurveyEngine.addOnPageSubmit(function() {
-  const questionId = 'Q10';  // ⚠️ UPDATE THIS TO MATCH ABOVE
+    if (viewportInterval) {
+      clearInterval(viewportInterval);
+    }
+    if (gazeListener) {
+      window.removeEventListener('message', gazeListener);
+    }
 
-  console.log('[Q' + questionId.substring(1) + '] 💾 Saving gaze data. Sample count:', this.gazeData ? this.gazeData.length : 0);
-
-  const trackingIframe = document.getElementById('calibration-iframe');
-  if (trackingIframe) {
-    trackingIframe.contentWindow.postMessage({ type: 'pause-tracking' }, '*');
-  }
-
-  if (this.viewportInterval) {
-    clearInterval(this.viewportInterval);
-  }
-  if (this.gazeListener) {
-    window.removeEventListener('message', this.gazeListener);
-  }
-
-  const gazeDataArray = this.gazeData || [];
-  const compressed = gazeDataArray.map(d => `${d.t},${d.x},${d.y}`).join('|');
-
-  console.log('[Q' + questionId.substring(1) + '] 💾 Compressed data length:', compressed.length, 'bytes');
-
-  Qualtrics.SurveyEngine.setEmbeddedData('gaze_' + questionId, compressed);
-});
+    // Save as JSON format for reliability
+    const dataToSave = JSON.stringify(gazeData);
+    console.log('[' + questionId + '] 💾 Data length:', dataToSave.length, 'bytes');
+    console.log('[' + questionId + '] 💾 First 200 chars:', dataToSave.substring(0, 200));
+    Qualtrics.SurveyEngine.setEmbeddedData('gaze_' + questionId, dataToSave);
+  });
+})('Q10');  // ← Change ONLY this to your questionId, e.g., ('Q20')
 ```
 
-6. **Update question IDs** in THREE places:
-   - HTML: `'recalibrated_at_Q10'` (line 337)
-   - JavaScript: `const questionId = 'Q10';` (line 354)
-   - JavaScript: `const questionId = 'Q10';` (line 421)
+6. **Update question IDs** in TWO places:
+   - HTML: `'recalibrated_at_Q10'` → change to `'recalibrated_at_Q20'` for Q20, etc.
+   - JavaScript: Change ONLY the last line to match your question number:
+     - For Q10: `})('Q10');`
+     - For Q20: `})('Q20');`
+     - For Q30: `})('Q30');`
 7. Save the question
 
 **Repeat for Q20, Q30, Q40** if your survey has 20+ questions.
