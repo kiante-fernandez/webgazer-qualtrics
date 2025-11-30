@@ -25,7 +25,12 @@ export default class GazeAdapter {
         // Create video element for WebcamClient
         this.videoElement = document.createElement('video');
         this.videoElement.id = 'webeyetrack-video';
-        this.videoElement.style.display = 'none'; // Hide by default
+        this.videoElement.style.opacity = '0';  // Invisible but still in layout
+        this.videoElement.style.position = 'fixed';
+        this.videoElement.style.top = '0';
+        this.videoElement.style.left = '0';
+        this.videoElement.style.pointerEvents = 'none';
+        this.videoElement.style.zIndex = '-1';
         this.videoElement.autoplay = true;
         this.videoElement.playsInline = true;
         document.body.appendChild(this.videoElement);
