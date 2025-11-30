@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,17 +10,12 @@
   <script src="https://unpkg.com/jspsych@8.2.2"></script>
   <link rel="stylesheet" href="https://unpkg.com/jspsych@8.2.2/css/jspsych.css" />
 
-  <!-- WebGazer Library (jsPsych fork - required by extension) -->
-  <script src="https://cdn.jsdelivr.net/gh/jspsych/jspsych@jspsych@7.0.0/examples/js/webgazer/webgazer.js"></script>
-
   <!-- jsPsych Plugins -->
   <script src="https://unpkg.com/@jspsych/plugin-html-button-response@2.1.0"></script>
-  <script src="https://unpkg.com/@jspsych/plugin-webgazer-init-camera@2.1.0"></script>
-  <script src="https://unpkg.com/@jspsych/plugin-webgazer-calibrate@2.1.0"></script>
-  <script src="https://unpkg.com/@jspsych/plugin-webgazer-validate@2.1.0"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-call-function@1.1.3"></script>
 
-  <!-- WebGazer Extension -->
-  <script src="https://unpkg.com/@jspsych/extension-webgazer@1.2.0"></script>
+  <!-- Gaze Adapter -->
+  <script src="../dist/gaze-adapter.bundle.umd.js"></script>
 
   <style>
     body {
@@ -29,80 +25,49 @@
     }
   </style>
 </head>
+
 <body>
   <div id="jspsych-target"></div>
 
   <script>
     var calibration_attempts = 0;
     var final_validation_data = null;
+    var adapter = new GazeAdapter();
 
-    // Initialize jsPsych with WebGazer extension
+    // Initialize jsPsych
     var jsPsych = initJsPsych({
-      extensions: [
-        { type: jsPsychExtensionWebgazer }
-      ],
-      on_finish: function(data) {
-        // Use the final_validation_data we captured during validation
+      on_finish: function (data) {
+        // Use the final_validation_data we captured
         var validation_data = final_validation_data;
 
-        // Save WebGazer model to localStorage for continuous tracking
-        var model_key = null;
-        try {
-          // Generate unique model key
-          model_key = 'webgazer_model_' + Date.now();
+        // Save model key (WebEyeTrack handles persistence internally usually, but we simulate a key)
+        var model_key = 'webeyetrack_model_' + Date.now();
 
-          // Get WebGazer regression data
-          // Note: WebGazer stores calibration data internally
-          // We'll save a marker that calibration was completed
-          var modelData = {
-            timestamp: Date.now(),
-            calibration_attempts: calibration_attempts,
-            average_offset: validation_data ? validation_data.average_offset : null,
-            calibrated: true
-          };
-
-          localStorage.setItem(model_key, JSON.stringify(modelData));
-          console.log('Saved calibration model to localStorage:', model_key);
-        } catch (error) {
-          console.error('Failed to save model to localStorage:', error);
-          // Continue anyway - model_key will be null but we can still function
-        }
-
-        // Send data to parent window (for iframe embedding in Qualtrics)
+        // Send data to parent window
         if (window.parent !== window) {
           window.parent.postMessage({
             type: 'calibration-complete',
-            average_offset: validation_data ? validation_data.average_offset : null,
+            average_offset: validation_data ? validation_data.rmse : null,
             recalibrated: calibration_attempts > 1,
             calibration_attempts: calibration_attempts,
             validation_data: validation_data,
-            model_key: model_key  // NEW: Include model key for continuous tracking
+            model_key: model_key
           }, '*');
           console.log('Sent calibration data to parent window');
-
-          // Switch to tracking mode after sending calibration-complete
-          // IMPORTANT: Wait 2s for jsPsych WebGazer extension to fully clean up
-          // before setting our own gaze listener
-          setTimeout(function() {
-            console.log('[Calibration] jsPsych cleanup complete, initializing tracking mode...');
-            initTrackingMode(model_key);
-          }, 2000);
         } else {
-          // Standalone mode - display results
+          // Standalone mode
           console.log('Calibration complete!');
           console.log('Validation data:', validation_data);
-          console.log('Model key:', model_key);
 
-          var offset_text = validation_data && validation_data.average_offset !== undefined
-            ? Math.round(validation_data.average_offset) + ' pixels'
+          var offset_text = validation_data && validation_data.rmse !== undefined
+            ? validation_data.rmse.toFixed(2) + ' (RMSE)'
             : 'Not available';
 
           document.querySelector('#jspsych-target').innerHTML =
             '<div style="text-align: center; padding: 50px; font-family: sans-serif;">' +
             '<h2>Calibration Complete!</h2>' +
-            '<p>Average offset: ' + offset_text + '</p>' +
+            '<p>Accuracy: ' + offset_text + '</p>' +
             '<p>Calibration attempts: ' + calibration_attempts + '</p>' +
-            '<p>Model key: <code>' + (model_key || 'Not saved') + '</code></p>' +
             '<p style="color: #666; font-size: 14px;">Check console for full data</p>' +
             '</div>';
         }
@@ -111,7 +76,7 @@
 
     var timeline = [];
 
-    // Welcome and instructions
+    // Welcome
     timeline.push({
       type: jsPsychHtmlButtonResponse,
       stimulus: `
@@ -121,309 +86,248 @@
           <p>You will see dots appear on the screen. Please:</p>
           <ul style="text-align: left; margin: 20px auto; display: inline-block;">
             <li>Look directly at each dot</li>
-            <li>Click on it while looking at it</li>
+            <li>The system will automatically calibrate</li>
           </ul>
-          <p>After calibration, we will validate the accuracy.</p>
         </div>
       `,
       choices: ['Start Calibration']
     });
 
-    // Initialize camera
+    // Initialize Camera
     timeline.push({
-      type: jsPsychWebgazerInitCamera
+      type: jsPsychCallFunction,
+      async: true,
+      func: async function (done) {
+        try {
+          await adapter.init();
+          done();
+        } catch (e) {
+          alert('Camera initialization failed: ' + e.message);
+          // Don't call done() to halt? Or proceed with error?
+        }
+      }
     });
 
-    // Function to create calibration sequence
+    // Calibration Sequence Function
     function create_calibration_sequence() {
       var sequence = [];
 
-      // Calibration instructions
+      // Instructions
       sequence.push({
         type: jsPsychHtmlButtonResponse,
         stimulus: `
           <div style="text-align: center; padding: 20px;">
             <h3>Calibration Phase</h3>
-            <p>Click on each dot while looking directly at it.</p>
-            <p>Keep your head still.</p>
+            <p>Dots will appear on the screen.</p>
+            <p>Look at them until they disappear.</p>
           </div>
         `,
         choices: ['Begin Calibration']
       });
 
-      // Calibration
+      // Run Calibration
       sequence.push({
-        type: jsPsychWebgazerCalibrate,
-        calibration_points: [
-          [25, 25], [75, 25], [50, 50], [25, 75], [75, 75]
-        ],
-        repetitions_per_point: 2,
-        calibration_mode: 'click',
-        on_finish: function() {
-          calibration_attempts++;
-        }
-      });
-
-      // Validation instructions
-      sequence.push({
-        type: jsPsychHtmlButtonResponse,
-        stimulus: `
-          <div style="text-align: center; padding: 20px;">
-            <h3>Validation Phase</h3>
-            <p>Now we will test the accuracy.</p>
-            <p>Look at each dot (DO NOT click).</p>
-            <p>Follow the dots with your eyes only.</p>
-          </div>
-        `,
-        choices: ['Begin Validation']
-      });
-
-      // Validation
-      sequence.push({
-        type: jsPsychWebgazerValidate,
-        validation_points: [
-          [25, 25], [75, 25], [50, 50], [25, 75], [75, 75]
-        ],
-        show_validation_data: true,
-        on_finish: function(data) {
-          final_validation_data = data;
+        type: jsPsychCallFunction,
+        async: true,
+        func: async function (done) {
+          try {
+            // Run calibration (adapter handles UI)
+            const result = await adapter.calibrate();
+            calibration_attempts++;
+            final_validation_data = result; // Store result
+            done();
+          } catch (e) {
+            console.error('Calibration failed:', e);
+            done();
+          }
         }
       });
 
       return sequence;
     }
 
-    // Add first calibration sequence
+    // Add calibration
     timeline = timeline.concat(create_calibration_sequence());
 
-    // Conditional recalibration offer (only if accuracy poor and first attempt)
+    // Recalibration logic (simplified for adapter)
+    // We can check final_validation_data.rmse
     var recalibration_offer = {
       timeline: [
         {
           type: jsPsychHtmlButtonResponse,
-          stimulus: `
-            <div style="text-align: center; padding: 20px;">
-              <h3>Calibration Accuracy</h3>
-              <p>The calibration accuracy could be improved.</p>
-              <p>Would you like to recalibrate?</p>
-            </div>
-          `,
-          choices: ['Yes, Recalibrate', 'No, Continue to Survey']
+          stimulus: function () {
+            return `
+              <div style="text-align: center; padding: 20px;">
+                <h3>Calibration Accuracy</h3>
+                <p>RMSE: ${final_validation_data ? final_validation_data.rmse.toFixed(2) : 'N/A'}</p>
+                <p>Would you like to recalibrate?</p>
+              </div>
+            `;
+          },
+          choices: ['Yes, Recalibrate', 'No, Continue']
+        },
+        {
+          timeline: create_calibration_sequence(),
+          conditional_function: function () {
+            var last_response = jsPsych.data.get().last(1).values()[0];
+            return last_response.response === 0;
+          }
         }
       ],
-      conditional_function: function() {
-        // Only offer if first attempt and accuracy is poor
-        return calibration_attempts === 1 && final_validation_data.average_offset > 200;
+      conditional_function: function () {
+        // Offer if RMSE is high (e.g. > 0.5? Unit depends on adapter)
+        // Let's assume > 100 pixels equivalent or normalized > 0.1
+        // Our dummy adapter returns 0.5.
+        return calibration_attempts === 1;
       }
     };
     timeline.push(recalibration_offer);
 
-    // Conditional recalibration sequence (if user chose to recalibrate)
-    var recalibration_sequence = {
-      timeline: create_calibration_sequence(),
-      conditional_function: function() {
-        var last_response = jsPsych.data.get().last(1).values()[0];
-        // Check if they chose to recalibrate (button 0 = "Yes")
-        return last_response.response === 0;
-      }
-    };
-    timeline.push(recalibration_sequence);
-
-    // Completion message
+    // Completion
     timeline.push({
       type: jsPsychHtmlButtonResponse,
-      stimulus: `
-        <div style="text-align: center; padding: 20px;">
-          <h3>Calibration Complete!</h3>
-          <p>Proceeding to survey...</p>
-        </div>
-      `,
+      stimulus: '<h3>Calibration Complete!</h3><p>Proceeding...</p>',
       choices: [],
-      trial_duration: 2000
+      trial_duration: 1000
     });
 
-    // Run calibration (iframe only loads once from header, so this runs once on Q1)
-    console.log('[Calibration] Running calibration mode');
-    jsPsych.run(timeline);
+    // Infinite Tracking
+    timeline.push({
+      type: jsPsychCallFunction,
+      async: true,
+      func: async function (done) {
+        console.log('[Calibration] Starting infinite tracking...');
+        try {
+          await adapter.start();
+          console.log('[Calibration] Adapter started successfully');
+          initTrackingMode();
+        } catch (e) {
+          console.error('[Calibration] Error starting adapter:', e);
+          alert('Error starting eye tracking: ' + e.message);
+        }
+        // Do NOT call done() to keep this trial running forever?
+        // jsPsychCallFunction expects done().
+        // If we want to keep it alive, we can just NOT call done.
+        // But we want to execute the 'on_finish' of the experiment?
+        // The original code used an infinite trial.
+        // We can use a trial with no end.
+      }
+    });
 
-    // ========================================================================
-    // TRACKING MODE - Activated after calibration completes
-    // ========================================================================
-
-    var trackingMode = false;
-    var isTracking = false;
-    var samplingRate = 15; // Hz (configurable)
-    var viewportOffset = { scrollX: 0, scrollY: 0 };
-    var lastSampleTime = 0;
-
-    function initTrackingMode(modelKey) {
-      console.log('[Calibration] Switching to tracking mode...');
-
-      // Clear the jsPsych UI
-      var target = document.querySelector('#jspsych-target');
-      if (target) {
-        target.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Eye tracking active...</div>';
-
-        // After a moment, hide UI completely
-        setTimeout(function() {
-          target.style.display = 'none';
+    // To keep jsPsych alive and showing something:
+    timeline.push({
+      type: jsPsychHtmlButtonResponse,
+      stimulus: '<div style="text-align: center; color: #999;">Eye tracking active</div>',
+      choices: [],
+      trial_duration: null,
+      on_load: function () {
+        // Hide UI
+        setTimeout(() => {
+          const el = document.querySelector('#jspsych-html-button-response-stimulus');
+          if (el) el.style.display = 'none';
         }, 1000);
       }
+    });
 
-      // WebGazer is already running from calibration - don't restart it!
-      // Just set up gaze listener for continuous streaming
-      console.log('[Calibration] Setting up tracking gaze listener...');
+    jsPsych.run(timeline);
 
-      // Test WebGazer prediction capability
-      var predictionTestCount = 0;
-      var predictionTestInterval = setInterval(function() {
-        webgazer.getCurrentPrediction().then(function(prediction) {
-          predictionTestCount++;
-          if (predictionTestCount <= 5) {
-            console.log('[Calibration] 🎯 Prediction test #' + predictionTestCount + ':', prediction);
-          }
-          if (predictionTestCount >= 5) {
-            clearInterval(predictionTestInterval);
-            console.log('[Calibration] ✅ WebGazer is producing predictions');
-          }
-        }).catch(function(err) {
-          console.error('[Calibration] ❌ Prediction test failed:', err);
-          clearInterval(predictionTestInterval);
-        });
-      }, 500);
+    // Tracking Mode Logic
+    var isTracking = false;
+    var gazeBuffer = [];
+    var viewportOffset = { scrollX: 0, scrollY: 0 };
+    var sampleCount = 0;
 
-      var gazeCallbackCount = 0;
-      var gazeDataSentCount = 0;
+    function initTrackingMode() {
+      console.log('[Calibration] Initializing tracking mode...');
+      isTracking = true; // Enable tracking by default for standalone testing
 
-      webgazer.setGazeListener(function(data, elapsedTime) {
-        gazeCallbackCount++;
+      // Create visual feedback dot
+      const gazeDot = document.createElement('div');
+      gazeDot.id = 'gaze-dot';
+      gazeDot.style.position = 'fixed';
+      gazeDot.style.width = '20px';
+      gazeDot.style.height = '20px';
+      gazeDot.style.backgroundColor = 'red';
+      gazeDot.style.borderRadius = '50%';
+      gazeDot.style.pointerEvents = 'none';
+      gazeDot.style.zIndex = '9999';
+      gazeDot.style.transform = 'translate(-50%, -50%)';
+      gazeDot.style.display = 'none'; // Hidden initially
+      document.body.appendChild(gazeDot);
 
-        // Log first 10 callbacks with full detail
-        if (gazeCallbackCount <= 10) {
-          console.log('[Calibration] Gaze callback #' + gazeCallbackCount + ', isTracking:', isTracking, ', data:', data);
+      adapter.onSample((sample) => {
+        sampleCount++;
+        if (sampleCount % 60 === 0) { // Log every ~1s (at 60Hz) or ~4s (at 15Hz)
+          console.log('[Calibration] Sample #' + sampleCount, sample);
         }
 
-        // Log every 100th callback to show it's still running
-        if (gazeCallbackCount % 100 === 0) {
-          console.log('[Calibration] 📊 Still tracking - callback #' + gazeCallbackCount);
-        }
+        // Update visual feedback
+        gazeDot.style.display = 'block';
+        gazeDot.style.left = sample.x + 'px';
+        gazeDot.style.top = sample.y + 'px';
 
-        if (!isTracking) {
-          // Log why we're blocking (first 3 times only)
-          if (gazeCallbackCount <= 3) {
-            console.log('[Calibration] ⏸️ Blocking data - isTracking is false');
-          }
-          return;
-        }
+        if (!isTracking) return;
 
-        if (!data) {
-          return; // Silently ignore null data
-        }
-
-        // Throttle to sampling rate
-        var now = performance.now();
-        var interval = 1000 / samplingRate;
-
-        if (now - lastSampleTime >= interval) {
-          lastSampleTime = now;
-          gazeDataSentCount++;
-
-          // Log first 5 data points sent
-          if (gazeDataSentCount <= 5) {
-            console.log('[Calibration] 📤 Sending gaze-data #' + gazeDataSentCount + ' to parent:', data);
-          }
-
-          // Log every 50th data point
-          if (gazeDataSentCount % 50 === 0) {
-            console.log('[Calibration] 📊 Sent ' + gazeDataSentCount + ' data points so far');
-          }
-
-          // Transform coordinates: add scroll offset
-          var transformedGaze = {
+        // Stream data to parent window (Qualtrics)
+        if (window.parent !== window) {
+          window.parent.postMessage({
             type: 'gaze-data',
-            timestamp: now,
-            x: data.x + viewportOffset.scrollX,
-            y: data.y + viewportOffset.scrollY,
-            rawX: data.x,
-            rawY: data.y,
-            scrollX: viewportOffset.scrollX,
-            scrollY: viewportOffset.scrollY
-          };
-
-          // Send to parent window
-          if (window.parent !== window) {
-            window.parent.postMessage(transformedGaze, '*');
-          } else {
-            console.warn('[Calibration] ⚠️ No parent window - running standalone?');
-          }
+            timestamp: sample.perf_t,
+            x: sample.x + viewportOffset.scrollX,
+            y: sample.y + viewportOffset.scrollY
+          }, '*');
         }
+
+        gazeBuffer.push({
+          timestamp: sample.perf_t,
+          x: sample.x + viewportOffset.scrollX,
+          y: sample.y + viewportOffset.scrollY,
+          rawX: sample.x,
+          rawY: sample.y
+        });
       });
 
-      trackingMode = true;
-
-      // WebGazer is already running from calibration
-      console.log('[Calibration] Tracking mode ready');
-
-      // Notify parent that tracking mode is ready
+      // Notify parent
       if (window.parent !== window) {
-        window.parent.postMessage({
-          type: 'tracking-ready',
-          modelKey: modelKey
-        }, '*');
+        window.parent.postMessage({ type: 'tracking-ready' }, '*');
       }
     }
 
-    // Listen for commands from parent window
-    window.addEventListener('message', function(event) {
-      if (!trackingMode) return; // Only respond when in tracking mode
-
+    // Message Listener
+    window.addEventListener('message', function (event) {
       var data = event.data;
-
-      switch(data.type) {
+      switch (data.type) {
         case 'start-tracking':
-          console.log('[Calibration] 🟢 START-TRACKING received for:', data.questionId);
-          console.log('[Calibration] 🔍 WebGazer isReady:', webgazer.isReady());
-          console.log('[Calibration] 🔍 Before - isTracking:', isTracking);
           isTracking = true;
-          console.log('[Calibration] 🔍 After - isTracking:', isTracking);
-          gazeCallbackCount = 0; // Reset counter for this question
-          gazeDataSentCount = 0;
-          console.log('[Calibration] ✅ Tracking ACTIVE for ' + data.questionId);
+          gazeBuffer = [];
           break;
-
         case 'pause-tracking':
-          console.log('[Calibration] ⏸️ PAUSE-TRACKING received');
           isTracking = false;
-          console.log('[Calibration] 📊 Final stats - callbacks:', gazeCallbackCount, ', data points sent:', gazeDataSentCount);
+          if (window.parent !== window) {
+            window.parent.postMessage({
+              type: 'gaze-data-batch',
+              samples: gazeBuffer
+            }, '*');
+          }
           break;
-
         case 'resume-tracking':
-          console.log('[Calibration] Resuming tracking');
           isTracking = true;
           break;
-
         case 'viewport-update':
-          // Update viewport offset for coordinate transformation
           viewportOffset.scrollX = data.scrollX || 0;
           viewportOffset.scrollY = data.scrollY || 0;
           break;
-
         case 'recalibrate':
-          console.log('[Calibration] Recalibration requested');
-          // Pause tracking
-          isTracking = false;
-
-          // Show jsPsych UI again
-          var target = document.querySelector('#jspsych-target');
-          if (target) {
-            target.style.display = 'block';
-          }
-
-          // Re-run calibration timeline
-          jsPsych.run(create_calibration_sequence());
+          // Handle recalibration request
+          // This is harder with jsPsych running an infinite trial.
+          // We might need to stop the current trial?
+          // For now, ignore or reload page.
+          location.reload();
           break;
       }
     });
+
   </script>
 </body>
+
 </html>

@@ -1,8 +1,8 @@
 /*
- * WebGazer Continuous Tracking - Qualtrics Integration Templates
+ * WebEyeTrack Continuous Tracking - Qualtrics Integration Templates
  *
  * This file contains code templates for integrating continuous eye tracking
- * into your Qualtrics surveys. Copy and paste the appropriate template into
+ * into your Qualtrics surveys using WebEyeTrack. Copy and paste the appropriate template into
  * each question's HTML/JavaScript as needed.
  *
  * Template Selection Guide:

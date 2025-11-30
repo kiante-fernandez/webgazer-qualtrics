@@ -1,240 +1,269 @@
 # Qualtrics Integration Guide
 
-This guide shows you how to embed eye tracking calibration into your Qualtrics surveys using iframes.
+This guide shows you how to embed WebEyeTrack eye tracking into your Qualtrics surveys using a persistent iframe approach.
 
-## Quick Start (3 Steps)
+## Overview
 
-### 1. Create Embedded Data Fields (Recommended)
+The integration uses a **persistent iframe** strategy to maintain WebEyeTrack state throughout the survey:
 
-Before adding the eye tracking question, set up embedded data fields to store the results:
+1. **Header**: Creates a hidden 1px × 1px iframe running `calibration.html`
+2. **Q1**: Makes iframe visible for calibration, then hides it
+3. **Q2+**: Iframe streams gaze data to questions via `postMessage`
 
-1. Go to **Survey Flow** in your Qualtrics survey
-2. Click **Add a New Element Here** → **Embedded Data**
-3. Add these fields:
-   - `eyetracking_offset`
-   - `eyetracking_recalibrated`
-   - `eyetracking_attempts`
-   - `eyetracking_validation`
-4. Move this element to the **top** of the survey flow
-5. Click **Save Flow**
-
-### 2. Create Eye Tracking Question
-
-1. Add a new **Text/Graphic** question to your survey
-2. Give it a name like "Eye Tracking Calibration"
-3. Click the **HTML View** button (`<>`) in the question editor
-4. Paste the code snippet below
-5. Save the question
-
-### 3. That's It!
-
-The eye tracking calibration will run automatically when respondents reach this question, and data will be saved to the embedded data fields. All participants continue to the survey regardless of calibration quality.
+This approach ensures:
+- **Continuous tracking**: One WebEyeTrack instance throughout survey
+- **No model reload**: Calibration persists between questions
+- **Simple integration**: Copy-paste JavaScript templates per question
 
 ---
 
-## Code Snippet
+## Setup Instructions
 
-Copy and paste this code into your Qualtrics question (HTML view):
+### Step 1: Add Header Code
+
+1. In Qualtrics, go to **Look & Feel** → **General** tab
+2. Scroll down to **Header** section
+3. Click **Edit**
+4. Paste this code:
 
 ```html
-<div style="width: 100%; height: 800px;">
-  <iframe
-    src="https://kiante-fernandez.github.io/webgazer-qualtrics/experiments/calibration.html"
-    width="100%"
-    height="800px"
-    allow="camera; microphone"
-    style="border: none;">
-  </iframe>
-</div>
-
 <script>
-  window.addEventListener('message', function(event) {
-    if (event.data.type === 'calibration-complete') {
-      // Save to Qualtrics embedded data
-      if (typeof Qualtrics !== 'undefined') {
-        Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_offset', event.data.average_offset);
-        Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_recalibrated', event.data.recalibrated);
-        Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_attempts', event.data.calibration_attempts);
-        Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_validation', JSON.stringify(event.data.validation_data));
-
-        // Auto-advance to next question
-        setTimeout(function() {
-          document.querySelector('#NextButton').click();
-        }, 1000);
-      }
-    }
-  });
+(function() {
+  if (document.getElementById('calibration-iframe')) return;
+  
+  const iframe = document.createElement('iframe');
+  iframe.id = 'calibration-iframe';
+  iframe.src = 'https://kiante-fernandez.github.io/webgazer-qualtrics/experiments/calibration.html';
+  iframe.allow = 'camera; microphone';
+  iframe.style.position = 'fixed';
+  iframe.style.bottom = '0';
+  iframe.style.left = '0';
+  iframe.style.width = '1px';
+  iframe.style.height = '1px';
+  iframe.style.border = 'none';
+  iframe.style.visibility = 'hidden';
+  iframe.style.pointerEvents = 'none';
+  iframe.style.zIndex = '-1';
+  document.body.appendChild(iframe);
+  
+  console.log('[Header] Persistent iframe created');
+})();
 </script>
-
-<style>
-  #NextButton { display: none !important; }
-</style>
 ```
+
+5. Click **Save**
+
+**Important:** Change the `src` URL to your deployed `calibration.html` location.
+
+### Step 2: Set Up Embedded Data
+
+1. Go to **Survey Flow**
+2. Click **Add a New Element Here** at the TOP
+3. Select **Embedded Data**
+4. Add these fields (leave values blank):
+
+**Calibration Data:**
+- `eyetracking_offset`
+- `eyetracking_recalibrated`
+- `eyetracking_attempts`
+- `eyetracking_validation`
+- `eyetracking_model_key`
+
+**Gaze Data (one per tracked question):**
+- `gaze_Q2`
+- `gaze_Q3`
+- `gaze_Q4`
+- ... (add for each question you want to track)
+
+5. Move this Embedded Data element to the **VERY TOP** of Survey Flow
+6. Click **Save Flow**
+
+### Step 3: Add Questions
+
+Use the JavaScript templates from `example-question-code.js`:
+
+- **Q1**: Use "Question 1: Calibration" template
+- **Q2+**: Use "Standard Tracking Questions" template
+- **Q10, Q20, etc.**: Optionally use "Recalibration Questions" template
 
 ---
 
-## What Happens During Calibration
+## Code Templates
 
-1. **Camera Initialization** - Participant grants webcam permission
-2. **Calibration Instructions** - Clear instructions on what to do
-3. **Calibration** - Participant clicks on 5 dots while looking at them (2 repetitions each)
-4. **Validation** - System tests accuracy by showing 5 dots (no clicking, just looking)
-5. **Optional Recalibration** - If accuracy is low (offset > 200px), participant can choose to recalibrate once
-6. **Auto-Advance** - Survey continues to next question
+See `example-question-code.js` for full copy-paste templates. Here's a summary:
+
+### Question 1 (Calibration)
+
+```javascript
+Qualtrics.SurveyEngine.addOnload(function() {
+  const iframe = document.getElementById('calibration-iframe');
+  
+  // Make iframe visible
+  iframe.style.width = '100%';
+  iframe.style.height = '800px';
+  iframe.style.visibility = 'visible';
+  // ... more styling
+  
+  // Listen for calibration-complete
+  window.addEventListener('message', function(event) {
+    if (event.data.type === 'calibration-complete') {
+      // Save calibration data
+      Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_offset', event.data.average_offset);
+      // ... save other fields
+      
+      // Hide iframe
+      // ... reset styling to hidden
+      
+      // Auto-advance
+      document.getElementById('NextButton').click();
+    }
+  });
+});
+```
+
+### Standard Questions (Q2+)
+
+```javascript
+Qualtrics.SurveyEngine.addOnload(function() {
+  const questionId = 'Q2'; // UPDATE THIS
+  const iframe = document.getElementById('calibration-iframe');
+  
+  // Start tracking
+  iframe.contentWindow.postMessage({
+    type: 'start-tracking',
+    questionId: questionId
+  }, '*');
+  
+  // Collect gaze data
+  let gazeData = [];
+  window.addEventListener('message', function(event) {
+    if (event.data.type === 'gaze-data') {
+      gazeData.push({
+        t: event.data.timestamp,
+        x: event.data.x,
+        y: event.data.y
+      });
+    }
+  });
+});
+
+Qualtrics.SurveyEngine.addOnPageSubmit(function() {
+  // Pause tracking
+  iframe.contentWindow.postMessage({ type: 'pause-tracking' }, '*');
+  
+  // Save data
+  const compressed = gazeData.map(d => `${d.t},${d.x},${d.y}`).join('|');
+  Qualtrics.SurveyEngine.setEmbeddedData('gaze_Q2', compressed);
+});
+```
 
 ---
 
 ## Data Output
 
-### Embedded Data Fields
+### Calibration Metrics
 
-Four fields are saved to your Qualtrics embedded data:
+- **`eyetracking_offset`**: RMSE accuracy (lower = better)
+- **`eyetracking_recalibrated`**: `true` if user recalibrated
+- **`eyetracking_attempts`**: Number of calibration attempts
+- **`eyetracking_validation`**: JSON with full calibration data
+- **`eyetracking_model_key`**: Unique identifier for this calibration
 
-1. **`eyetracking_offset`** - Average offset in pixels (accuracy metric)
-   - Lower = better accuracy
-   - Typical range: 50-200 pixels
-   - If > 200px, participant is offered optional recalibration
-   - Use this for quality control in analysis
+### Gaze Data Format
 
-2. **`eyetracking_recalibrated`** - Whether participant chose to recalibrate
-   - `true` = participant recalibrated
-   - `false` = accepted initial calibration
-   - Useful for understanding data quality improvements
-
-3. **`eyetracking_attempts`** - Number of calibration attempts
-   - `1` = accepted initial calibration
-   - `2` = chose to recalibrate
-
-4. **`eyetracking_validation`** - Full validation data (JSON string)
-   - Contains raw gaze coordinates, validation points, percent in ROI, etc.
-   - Parse this field for detailed analysis
-
-### Validation Data Structure
-
-The `eyetracking_validation` field contains a JSON string:
-
-```json
-{
-  "raw_gaze": [[x, y], [x, y], ...],
-  "validation_points": [[x, y], [x, y], ...],
-  "average_offset": 156.7,
-  "percent_in_roi": [95, 90, 85, 80, 75]
-}
+Stored in compressed format per question:
+```
+"t1,x1,y1|t2,x2,y2|t3,x3,y3|..."
 ```
 
-**Metrics:**
-- `average_offset` - Same as `eyetracking_offset` field
-- `percent_in_roi` - Array of percentages (one per validation point) indicating how many gaze predictions fell within the region of interest
-- `raw_gaze` - All raw gaze coordinates during validation
+Where:
+- `t` = timestamp (ms, relative to question start)
+- `x` = gaze x-coordinate (pixels, viewport-relative)
+- `y` = gaze y-coordinate (pixels, viewport-relative)
 
----
-
-## Customization
-
-### Adjust Iframe Height
-
-If the content doesn't fit properly, adjust the height:
-
-```html
-<div style="width: 100%; height: 900px;">  <!-- Changed from 800px -->
-  <iframe
-    ...
-    height="900px">  <!-- Changed from 800px -->
+**Example:**
+```
+"0,512,384|67,515,386|134,518,390|..."
 ```
 
-### Disable Auto-Advance
+### Parsing Examples
 
-Remove these lines from the code:
-
-```javascript
-// Auto-advance to next question
-setTimeout(function() {
-  document.querySelector('#NextButton').click();
-}, 1000);
+**R:**
+```r
+library(tidyr)
+gaze_df <- data.frame(raw = unlist(strsplit(gaze_data, "\\|")))
+gaze_df <- separate(gaze_df, raw, into = c("t", "x", "y"), sep = ",", convert = TRUE)
 ```
 
-And remove this style:
-
-```html
-<style>
-  #NextButton { display: none !important; }
-</style>
+**Python:**
+```python
+import pandas as pd
+samples = [s.split(',') for s in gaze_data.split('|')]
+df = pd.DataFrame(samples, columns=['t', 'x', 'y'], dtype=int)
 ```
-
-### Custom Calibration Points
-
-To use different calibration points or change the recalibration threshold, you'll need to fork the repository and modify `experiments/calibration.html`. See the main README for instructions.
 
 ---
 
 ## Troubleshooting
 
-### Camera Permission Denied
-
-**Problem:** Participants see "Permission denied" or camera doesn't initialize.
-
-**Solution:**
-- Ensure participants are using HTTPS (required for camera access)
-- Ask participants to check browser permissions and allow camera access
-- Some browsers block camera in iframes - this is rare but can happen
-
-### Iframe Not Displaying
-
-**Problem:** Blank space where iframe should be.
-
-**Solution:**
+### "Persistent iframe not found"
+- Ensure Header code is added and saved
 - Check browser console for errors
-- Verify the iframe `src` URL is correct
-- Ensure your Qualtrics survey allows iframes (some organizations restrict this)
+- Verify iframe is created: `document.getElementById('calibration-iframe')`
 
-### Data Not Saving
+### No gaze data collected
+- Verify participant granted camera permission on Q1
+- Check that `start-tracking` message is sent
+- Ensure embedded data fields exist in Survey Flow
+- Check for JavaScript errors in console
 
-**Problem:** Embedded data fields are empty after completion.
+### Poor calibration accuracy
+- Offer recalibration (built-in for RMSE > threshold)
+- Ensure good lighting and stable head position
+- Filter low-quality responses using `eyetracking_offset`
 
-**Solution:**
-- Verify embedded data fields are created in Survey Flow **before** the eye tracking question
-- Field names must match exactly: `eyetracking_offset`, `eyetracking_recalibrated`, `eyetracking_attempts`, `eyetracking_validation`
-- Check browser console for JavaScript errors
-
-### Poor Calibration Accuracy
-
-**Problem:** `eyetracking_offset` is very high (>300px) for most participants.
-
-**Solution:**
-- If offset > 200px, participants are automatically offered optional recalibration
-- Ensure good lighting on participant's face
-- Ask participant to sit still and maintain consistent head position
-- Consider adding instructions before the eye tracking question
-- Filter out low-quality responses in analysis using the `eyetracking_offset` field
+### Coordinates seem wrong
+- Ensure viewport updates are running (handles scrolling)
+- Check that coordinate transformation is applied
+- Verify no JavaScript errors
 
 ---
 
 ## Technical Details
 
-### Why Iframe Approach?
+### Why Persistent Iframe?
 
-Qualtrics enforces a Content Security Policy (CSP) that blocks `eval()` in JavaScript. WebGazer's regression models require `eval()` to function. By hosting the experiment externally and embedding via iframe, the experiment runs in a different origin where CSP restrictions don't apply.
+Qualtrics enforces Content Security Policy (CSP) that restricts JavaScript execution. WebEyeTrack requires TensorFlow.js and MediaPipe, which need a permissive environment. By hosting externally in an iframe, we bypass CSP restrictions.
+
+### Why Not Reload Per Question?
+
+Reloading WebEyeTrack on each question would:
+- Require recalibration every time
+- Lose model personalization
+- Create poor user experience
+
+The persistent iframe maintains calibration throughout the survey.
 
 ### Browser Compatibility
 
-- **Supported:** Chrome, Edge, Firefox, Safari (modern versions)
-- **Required:** HTTPS connection for camera access
-- **Note:** Mobile browsers have limited webcam support
+- **Supported**: Chrome, Edge, Firefox, Safari
+- **Required**: HTTPS for camera access
+- **Note**: Mobile webcam support varies
 
-### Privacy & Data
+### Privacy
 
-- Eye tracking runs entirely in the participant's browser
-- No video or images are sent to any server
-- Only gaze coordinates (x, y pixel positions) are saved
-- Participants must explicitly grant camera permission
+- Eye tracking runs entirely in browser
+- No video sent to servers
+- Only gaze coordinates (x, y pixels) saved
+- Explicit camera permission required
 
 ---
 
 ## Support
 
-For issues, questions, or feature requests:
-- [GitHub Repository](https://github.com/kiante-fernandez/webgazer-qualtrics)
-- [Open an Issue](https://github.com/kiante-fernandez/webgazer-qualtrics/issues)
+For issues or questions:
+- GitHub: [webgazer-qualtrics](https://github.com/kiante-fernandez/webgazer-qualtrics)
+- Issues: [Open an Issue](https://github.com/kiante-fernandez/webgazer-qualtrics/issues)
 
 ---
 
@@ -242,4 +271,6 @@ For issues, questions, or feature requests:
 
 This integration uses:
 - [jsPsych](https://www.jspsych.org/) - Behavioral experiment framework
-- [WebGazer.js](https://webgazer.cs.brown.edu/) - Eye tracking library
+- [WebEyeTrack](https://github.com/RedForestAI/WebEyeTrack) - Eye tracking library
+- [TensorFlow.js](https://www.tensorflow.org/js) - Machine learning
+- [MediaPipe](https://mediapipe.dev/) - Face mesh detection

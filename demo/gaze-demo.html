@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebEyeTrack Gaze Adapter Demo</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        #controls {
+            margin-bottom: 20px;
+            z-index: 1000;
+            position: relative;
+        }
+        #gaze-dot {
+            position: fixed;
+            width: 20px;
+            height: 20px;
+            background: red;
+            border-radius: 50%;
+            pointer-events: none;
+            display: none;
+            z-index: 9999;
+            transform: translate(-50%, -50%);
+        }
+        #status {
+            margin-top: 10px;
+            font-weight: bold;
+        }
+        #logs {
+            margin-top: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 10px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div id="controls">
+        <h1>WebEyeTrack Gaze Adapter Demo</h1>
+        <button id="btn-init">Initialize</button>
+        <button id="btn-start" disabled>Start</button>
+        <button id="btn-stop" disabled>Stop</button>
+        <button id="btn-calibrate" disabled>Calibrate</button>
+        <div id="status">Status: Idle</div>
+    </div>
+
+    <div id="gaze-dot"></div>
+    <div id="logs"></div>
+
+    <!-- Load the built adapter bundle -->
+    <script src="../dist/gaze-adapter.bundle.umd.js"></script>
+
+    <script>
+        // The bundle exposes 'GazeAdapter' global variable (UMD name)
+        let adapter;
+        const statusEl = document.getElementById('status');
+        const gazeDot = document.getElementById('gaze-dot');
+        const logsEl = document.getElementById('logs');
+
+        function log(msg) {
+            const div = document.createElement('div');
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            logsEl.insertBefore(div, logsEl.firstChild);
+            console.log(msg);
+        }
+
+        document.getElementById('btn-init').onclick = async () => {
+            try {
+                statusEl.textContent = 'Status: Initializing...';
+                adapter = new GazeAdapter();
+                await adapter.init();
+                statusEl.textContent = 'Status: Ready';
+                document.getElementById('btn-start').disabled = false;
+                document.getElementById('btn-calibrate').disabled = false;
+                document.getElementById('btn-init').disabled = true;
+                log('Initialized');
+            } catch (e) {
+                statusEl.textContent = 'Status: Error initializing';
+                log('Error: ' + e.message);
+            }
+        };
+
+        document.getElementById('btn-start').onclick = async () => {
+            if (!adapter) return;
+            await adapter.start();
+            statusEl.textContent = 'Status: Tracking';
+            document.getElementById('btn-stop').disabled = false;
+            document.getElementById('btn-start').disabled = true;
+            gazeDot.style.display = 'block';
+            
+            adapter.onSample((sample) => {
+                // Update gaze dot
+                gazeDot.style.left = sample.x + 'px';
+                gazeDot.style.top = sample.y + 'px';
+                
+                // Log occasionally
+                if (Math.random() < 0.05) {
+                    // log(`Gaze: ${Math.round(sample.x)}, ${Math.round(sample.y)}`);
+                }
+            });
+            log('Started tracking');
+        };
+
+        document.getElementById('btn-stop').onclick = async () => {
+            if (!adapter) return;
+            await adapter.stop();
+            statusEl.textContent = 'Status: Stopped';
+            document.getElementById('btn-stop').disabled = true;
+            document.getElementById('btn-start').disabled = false;
+            gazeDot.style.display = 'none';
+            log('Stopped tracking');
+        };
+
+        document.getElementById('btn-calibrate').onclick = async () => {
+            if (!adapter) return;
+            statusEl.textContent = 'Status: Calibrating...';
+            log('Starting calibration...');
+            try {
+                const result = await adapter.calibrate();
+                log('Calibration finished. RMSE: ' + result.rmse);
+                statusEl.textContent = 'Status: Calibration Done';
+            } catch (e) {
+                log('Calibration failed: ' + e.message);
+                statusEl.textContent = 'Status: Calibration Error';
+            }
+        };
+    </script>
+</body>
+</html>
