@@ -52,8 +52,31 @@ export default class WebEyeTrackProxy {
     }
 
     // Initialize the worker with model path
-    // Construct absolute URL for model (works in both dev and production)
-    const modelPath = `${window.location.origin}${window.location.pathname.replace(/\/[^/]*$/, '')}/dist/web/model.json`;
+    // Construct absolute URL for model at repository root
+    // The model is at /dist/web/model.json from repo root, not relative to current file
+    const origin = window.location.origin;
+    const pathname = window.location.pathname;
+
+    // Extract repo base path
+    // For GitHub Pages: /repo-name/experiments/calibration.html -> /repo-name/
+    // For local dev: /experiments/calibration.html -> /
+    let repoBase: string;
+    if (pathname.includes('/experiments/')) {
+      // Remove everything from /experiments/ onwards
+      repoBase = pathname.substring(0, pathname.indexOf('/experiments/'));
+    } else if (pathname.includes('/demo/')) {
+      // Remove everything from /demo/ onwards
+      repoBase = pathname.substring(0, pathname.indexOf('/demo/'));
+    } else {
+      // Fallback: just remove filename
+      repoBase = pathname.replace(/\/[^/]*$/, '');
+    }
+
+    // Ensure trailing slash is removed
+    repoBase = repoBase.replace(/\/$/, '');
+
+    const modelPath = `${origin}${repoBase}/dist/web/model.json`;
+    console.log('[WebEyeTrackProxy] Repo base:', repoBase);
     console.log('[WebEyeTrackProxy] Model path:', modelPath);
     this.worker.postMessage({ type: 'init', payload: { modelPath } });
 

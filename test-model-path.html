@@ -20,7 +20,21 @@
             results.push(`Href: <code>${window.location.href}</code>`);
 
             // Model path construction (same logic as WebEyeTrackProxy)
-            const modelPath = `${window.location.origin}${window.location.pathname.replace(/\/[^/]*$/, '')}/dist/web/model.json`;
+            const origin = window.location.origin;
+            const pathname = window.location.pathname;
+
+            // Extract repo base path
+            let repoBase;
+            if (pathname.includes('/experiments/')) {
+                repoBase = pathname.substring(0, pathname.indexOf('/experiments/'));
+            } else if (pathname.includes('/demo/')) {
+                repoBase = pathname.substring(0, pathname.indexOf('/demo/'));
+            } else {
+                repoBase = pathname.replace(/\/[^/]*$/, '');
+            }
+            repoBase = repoBase.replace(/\/$/, '');
+
+            const modelPath = `${origin}${repoBase}/dist/web/model.json`;
 
             results.push(`<h2>Computed Model Path:</h2>`);
             results.push(`<code style="color: green; font-weight: bold;">${modelPath}</code>`);
@@ -30,33 +44,49 @@
 
             const testCases = [
                 {
-                    desc: 'Root HTML file',
+                    desc: 'Root HTML file (no subdirs)',
                     origin: 'https://example.com',
                     pathname: '/calibration.html',
                     expected: 'https://example.com/dist/web/model.json'
                 },
                 {
-                    desc: 'Nested in experiments/',
+                    desc: 'Nested in experiments/ (repo root)',
                     origin: 'https://example.com',
                     pathname: '/experiments/calibration.html',
-                    expected: 'https://example.com/experiments/dist/web/model.json'
+                    expected: 'https://example.com/dist/web/model.json'
                 },
                 {
-                    desc: 'GitHub Pages',
+                    desc: 'GitHub Pages (repo + experiments)',
                     origin: 'https://kiante-fernandez.github.io',
                     pathname: '/webgazer-qualtrics/experiments/calibration.html',
-                    expected: 'https://kiante-fernandez.github.io/webgazer-qualtrics/experiments/dist/web/model.json'
+                    expected: 'https://kiante-fernandez.github.io/webgazer-qualtrics/dist/web/model.json'
                 },
                 {
                     desc: 'Localhost dev',
                     origin: 'http://localhost:5173',
                     pathname: '/experiments/calibration.html',
-                    expected: 'http://localhost:5173/experiments/dist/web/model.json'
+                    expected: 'http://localhost:5173/dist/web/model.json'
+                },
+                {
+                    desc: 'Demo page',
+                    origin: 'http://localhost:5173',
+                    pathname: '/demo/gaze-demo.html',
+                    expected: 'http://localhost:5173/dist/web/model.json'
                 }
             ];
 
             testCases.forEach(test => {
-                const computed = `${test.origin}${test.pathname.replace(/\/[^/]*$/, '')}/dist/web/model.json`;
+                // Use same logic as WebEyeTrackProxy
+                let testRepoBase;
+                if (test.pathname.includes('/experiments/')) {
+                    testRepoBase = test.pathname.substring(0, test.pathname.indexOf('/experiments/'));
+                } else if (test.pathname.includes('/demo/')) {
+                    testRepoBase = test.pathname.substring(0, test.pathname.indexOf('/demo/'));
+                } else {
+                    testRepoBase = test.pathname.replace(/\/[^/]*$/, '');
+                }
+                testRepoBase = testRepoBase.replace(/\/$/, '');
+                const computed = `${test.origin}${testRepoBase}/dist/web/model.json`;
                 const passed = computed === test.expected;
                 results.push(`
                     <div style="margin: 10px 0; padding: 10px; border: 1px solid ${passed ? 'green' : 'red'}; background: ${passed ? '#e0ffe0' : '#ffe0e0'}">
