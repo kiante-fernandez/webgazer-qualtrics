@@ -118,13 +118,6 @@ gaze_Q12
 3. Click the gear icon → **"Add JavaScript"**
 4. **Copy and paste this code**:
 
-**Note:** The calibration flow includes improved user experience:
-- Camera permission requested immediately when page loads
-- User cannot proceed until camera is ready
-- Green calibration dots guide attention
-- Clear instructions explain what to do
-- Auto-advances after successful calibration
-
 ```javascript
 Qualtrics.SurveyEngine.addOnload(function() {
   const iframe = document.getElementById('calibration-iframe');
@@ -482,7 +475,7 @@ Where:
 
 **Sampling Rate:** Default is 15 Hz. To increase fidelity, edit [calibration.html:251](../experiments/calibration.html#L251) and change `samplingRate = 15` to 30 or 60 Hz. Higher rates generate more data.
 
-**Recalibration Frequency:** Default is every 10 questions. Add recalibration questions at any interval (Q5, Q15, Q25) or skip entirely.
+**Recalibration Frequency:** Consider adding recalibration questions at any interval (Q5, Q15, Q25) or skip entirely.
 
 **Selective Tracking:** Only add tracking JavaScript to questions you want to track. Skip questions don't need tracking code.
 
