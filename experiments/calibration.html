@@ -98,11 +98,11 @@
         try {
           await adapter.init();
           document.getElementById('camera-status').innerHTML =
-            '<span style="color: #2ecc71;">✓ Camera ready</span>';
+            '<span style="color: #2ecc71;">Camera ready</span>';
           if (continueBtn) continueBtn.disabled = false;
         } catch (e) {
           document.getElementById('camera-status').innerHTML =
-            '<span style="color: #e74c3c;">✗ Camera initialization failed: ' + e.message + '</span>';
+            '<span style="color: #e74c3c;">Camera initialization failed: ' + e.message + '</span>';
           // Keep button disabled - user cannot proceed
         }
       }
@@ -276,7 +276,7 @@
         type: jsPsychHtmlButtonResponse,
         stimulus: `
           <div style="text-align: center; padding: 40px;">
-            <h2 style="color: #2ecc71;">✅ Eye Tracking Active</h2>
+            <h2 style="color: #2ecc71;">Eye Tracking Active</h2>
             <p style="margin: 20px 0;">Calibration complete and tracker is running.</p>
             <p style="color: #666; font-size: 14px;">In Qualtrics, this iframe would remain hidden while tracking continues.</p>
             <p style="color: #666; font-size: 14px; margin-top: 30px;">You can close this window now or click the button below.</p>
@@ -330,7 +330,7 @@
 
         if (!isTracking) {
           if (sampleCount % 60 === 0) {
-            console.log('[Calibration] ⏸️ isTracking is FALSE, blocking postMessage (sample #' + sampleCount + ')');
+            console.log('[Calibration] isTracking is FALSE, blocking postMessage (sample #' + sampleCount + ')');
           }
           return;
         }
@@ -338,7 +338,7 @@
         // Stream data to parent window (Qualtrics)
         if (window.parent !== window) {
           if (sampleCount % 60 === 0) {
-            console.log('[Calibration] 👁️ isTracking is TRUE, sending gaze-data to parent (sample #' + sampleCount + ')');
+            console.log('[Calibration] isTracking is TRUE, sending gaze-data to parent (sample #' + sampleCount + ')');
           }
           window.parent.postMessage({
             type: 'gaze-data',
@@ -368,17 +368,17 @@
       var data = event.data;
       switch (data.type) {
         case 'start-tracking':
-          console.log('[Calibration] 🟢 Received START-TRACKING message');
-          console.log('[Calibration] 🔍 Before: isTracking =', isTracking);
+          console.log('[Calibration] Received START-TRACKING message');
+          console.log('[Calibration] Before: isTracking =', isTracking);
           isTracking = true;
           gazeBuffer = [];
-          console.log('[Calibration] 🔍 After: isTracking =', isTracking);
-          console.log('[Calibration] ✅ Tracking ACTIVE, buffer cleared');
+          console.log('[Calibration] After: isTracking =', isTracking);
+          console.log('[Calibration] Tracking ACTIVE, buffer cleared');
           break;
         case 'pause-tracking':
-          console.log('[Calibration] ⏸️ Received PAUSE-TRACKING message');
+          console.log('[Calibration] Received PAUSE-TRACKING message');
           isTracking = false;
-          console.log('[Calibration] 📊 Sending', gazeBuffer.length, 'buffered samples to parent');
+          console.log('[Calibration] Sending', gazeBuffer.length, 'buffered samples to parent');
           if (window.parent !== window) {
             window.parent.postMessage({
               type: 'gaze-data-batch',

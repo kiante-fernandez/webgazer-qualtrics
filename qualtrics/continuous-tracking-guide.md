@@ -185,7 +185,7 @@ Qualtrics.SurveyEngine.addOnload(function() {
 **What this does:**
 - Makes the persistent iframe visible for calibration
 - Displays welcome screen with camera permission request
-- Shows "Initializing camera..." status, then "✓ Camera ready" when ready
+- Shows "Initializing camera..." status, then "Camera ready" when ready
 - User sees clear instructions before calibration begins
 - Green dots appear for calibration (8 positions)
 - Blue dots appear for validation (4 positions)
@@ -386,7 +386,7 @@ Qualtrics.SurveyEngine.addOnload(function() {
 
     // Iframe is already in tracking mode, so start tracking immediately
     // (tracks during prompt and recalibration)
-    console.log('[' + questionId + '] ▶️ Sending start-tracking command');
+    console.log('[' + questionId + '] Sending start-tracking command');
     iframe.contentWindow.postMessage({
       type: 'start-tracking',
       questionId: questionId,
@@ -406,7 +406,7 @@ Qualtrics.SurveyEngine.addOnload(function() {
     gazeListener = function(event) {
       if (event.data.type === 'gaze-data') {
         if (gazeData.length === 0) {
-          console.log('[' + questionId + '] ✅ First gaze data received:', event.data);
+          console.log('[' + questionId + '] First gaze data received:', event.data);
         }
 
         gazeData.push({
@@ -420,7 +420,7 @@ Qualtrics.SurveyEngine.addOnload(function() {
   });
 
   Qualtrics.SurveyEngine.addOnPageSubmit(function() {
-    console.log('[' + questionId + '] 💾 Saving gaze data. Sample count:', gazeData.length);
+    console.log('[' + questionId + '] Saving gaze data. Sample count:', gazeData.length);
 
     const trackingIframe = document.getElementById('calibration-iframe');
     if (trackingIframe) {
@@ -436,8 +436,8 @@ Qualtrics.SurveyEngine.addOnload(function() {
 
     // Save as JSON format for reliability
     const dataToSave = JSON.stringify(gazeData);
-    console.log('[' + questionId + '] 💾 Data length:', dataToSave.length, 'bytes');
-    console.log('[' + questionId + '] 💾 First 200 chars:', dataToSave.substring(0, 200));
+    console.log('[' + questionId + '] Data length:', dataToSave.length, 'bytes');
+    console.log('[' + questionId + '] First 200 chars:', dataToSave.substring(0, 200));
     Qualtrics.SurveyEngine.setEmbeddedData('gaze_' + questionId, dataToSave);
   });
 })('Q10');  // ← Change ONLY this to your questionId, e.g., ('Q20')

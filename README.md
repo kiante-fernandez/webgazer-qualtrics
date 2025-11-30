@@ -79,7 +79,7 @@ The calibration process includes improved user experience:
 1.  Welcome screen explains eye tracking requirement
 2.  Camera permission requested immediately on page load
 3.  User cannot proceed until camera is ready
-4.  Clear status feedback ("Initializing camera..." → "✓ Camera ready")
+4.  Clear status feedback ("Initializing camera..." → "Camera ready")
 
 **Calibration Phase:**
 1.  Detailed instructions guide users on proper setup
