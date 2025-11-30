@@ -186,44 +186,30 @@ Qualtrics.SurveyEngine.addOnload(function() {
 3. **Copy and paste this code**:
 
 ```javascript
-// ============================================================================
-// TRACKING QUESTIONS (Q2, Q3, Q4, ...)
-// Use closure to share data between callbacks (this context doesn't work in Qualtrics)
-// ============================================================================
-
-(function() {
-  // ⚠️ IMPORTANT: Update the variable names and questionId for each question
-  // For Q2: gazeData_Q2, gazeListener_Q2, viewportInterval_Q2, trackingStartTime_Q2, questionId = 'Q2'
-  // For Q3: gazeData_Q3, gazeListener_Q3, viewportInterval_Q3, trackingStartTime_Q3, questionId = 'Q3'
-  // etc.
-
-  let gazeData_Q2 = [];
-  let gazeListener_Q2 = null;
-  let viewportInterval_Q2 = null;
-  let trackingStartTime_Q2 = 0;
+(function(questionId) {  // ← Pass your Q# here, e.g., 'Q3'
+  let gazeData = [];
+  let gazeListener = null;
+  let viewportInterval = null;
+  let trackingStartTime = 0;
 
   Qualtrics.SurveyEngine.addOnload(function() {
-    const questionId = 'Q2';  // ← UPDATE THIS FOR EACH QUESTION
     const iframe = document.getElementById('calibration-iframe');
-
     if (!iframe) {
       console.error('[' + questionId + '] Persistent iframe not found!');
       return;
     }
 
-    // Reset closure variables
-    gazeData_Q2 = [];
-    trackingStartTime_Q2 = performance.now();
+    gazeData = [];
+    trackingStartTime = performance.now();
 
     console.log('[' + questionId + '] ▶️ Sending start-tracking command');
     iframe.contentWindow.postMessage({
       type: 'start-tracking',
       questionId: questionId,
-      questionStartTime: trackingStartTime_Q2
+      questionStartTime: trackingStartTime
     }, '*');
 
-    // Viewport updates
-    viewportInterval_Q2 = setInterval(function() {
+    viewportInterval = setInterval(function() {
       if (iframe.contentWindow) {
         iframe.contentWindow.postMessage({
           type: 'viewport-update',
@@ -233,65 +219,52 @@ Qualtrics.SurveyEngine.addOnload(function() {
       }
     }, 100);
 
-    // Gaze data listener - populates closure variable
-    gazeListener_Q2 = function(event) {
+    gazeListener = function(event) {
       if (event.data.type === 'gaze-data') {
-        if (gazeData_Q2.length < 5) {
-          console.log('[' + questionId + '] 📥 Received gaze-data #' + (gazeData_Q2.length + 1) + ':', event.data);
+        if (gazeData.length < 5) {
+          console.log('[' + questionId + '] 📥 Received gaze-data #' + (gazeData.length + 1) + ':', event.data);
         }
-        if ((gazeData_Q2.length + 1) % 100 === 0) {
-          console.log('[' + questionId + '] 📊 Received ' + (gazeData_Q2.length + 1) + ' data points');
+        if ((gazeData.length + 1) % 100 === 0) {
+          console.log('[' + questionId + '] 📊 Received ' + (gazeData.length + 1) + ' data points');
         }
 
-        gazeData_Q2.push({
-          t: Math.round(event.data.timestamp - trackingStartTime_Q2),
+        gazeData.push({
+          t: Math.round(event.data.timestamp - trackingStartTime),
           x: Math.round(event.data.x),
           y: Math.round(event.data.y)
         });
       }
     };
-    window.addEventListener('message', gazeListener_Q2);
+    window.addEventListener('message', gazeListener);
   });
 
   Qualtrics.SurveyEngine.addOnPageSubmit(function() {
-    const questionId = 'Q2';  // ← UPDATE THIS TO MATCH ABOVE
-
-    console.log('[' + questionId + '] 💾 Saving gaze data. Sample count:', gazeData_Q2.length);
+    console.log('[' + questionId + '] 💾 Saving gaze data. Sample count:', gazeData.length);
 
     const trackingIframe = document.getElementById('calibration-iframe');
-
-    // Pause tracking
     if (trackingIframe) {
       trackingIframe.contentWindow.postMessage({ type: 'pause-tracking' }, '*');
     }
 
-    // Clean up
-    if (viewportInterval_Q2) {
-      clearInterval(viewportInterval_Q2);
+    if (viewportInterval) {
+      clearInterval(viewportInterval);
     }
-    if (gazeListener_Q2) {
-      window.removeEventListener('message', gazeListener_Q2);
+    if (gazeListener) {
+      window.removeEventListener('message', gazeListener);
     }
 
-    // Save gaze data (now accessing closure variable, not this.gazeData)
-    const compressed = gazeData_Q2.map(d => `${d.t},${d.x},${d.y}`).join('|');
-
+    const compressed = gazeData.map(d => `${d.t},${d.x},${d.y}`).join('|');
     console.log('[' + questionId + '] 💾 Compressed data length:', compressed.length, 'bytes');
-
     Qualtrics.SurveyEngine.setEmbeddedData('gaze_' + questionId, compressed);
   });
-})();
+})('Q2');  // ← Change ONLY this to your questionId, e.g., ('Q3')
 ```
 
-4. **For each question, update BOTH the variable names AND questionId**:
-   - **Variable names**: Change `_Q2` suffix to match your question (`_Q3`, `_Q4`, etc.)
-     - `gazeData_Q2` → `gazeData_Q3` (for Q3)
-     - `gazeListener_Q2` → `gazeListener_Q3` (for Q3)
-     - `viewportInterval_Q2` → `viewportInterval_Q3` (for Q3)
-     - `trackingStartTime_Q2` → `trackingStartTime_Q3` (for Q3)
-   - **questionId variable** (TWO places):
-     - Line 204: `const questionId = 'Q2';` → Change to your question number
-     - Line 255: `const questionId = 'Q2';` → Change to match
+4. **Change ONLY the last line** to match your question number:
+   - For Q2: `})('Q2');`
+   - For Q3: `})('Q3');`
+   - For Q4: `})('Q4');`
+   - etc.
 5. Save the question
 
 **Repeat for all tracked questions**: Q2, Q3, Q4, Q5, Q6, Q7, Q8, Q9, Q11, Q12, etc. (skip Q10 for now)
