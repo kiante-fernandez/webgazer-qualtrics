@@ -140,6 +140,9 @@ Qualtrics.SurveyEngine.addOnload(function() {
   const messageHandler = function(event) {
     if (!event.data || event.data.type !== 'calibration-complete') return;
 
+    // Remove listener immediately to prevent firing on future pages
+    window.removeEventListener('message', messageHandler);
+
     console.log('[Q1] Calibration complete, hiding iframe');
 
     // Save calibration data to embedded data
@@ -308,12 +311,50 @@ Qualtrics.SurveyEngine.addOnload(function() {
 </div>
 
 <script>
+  // Define handler globally so we can remove it later
+  var calibrationMessageHandler = function(event) {
+    if (event.data.type === 'calibration-complete') {
+      // Prevent double-firing
+      if (window.recalibrationHasAdvanced) return;
+      window.recalibrationHasAdvanced = true;
+
+      // Remove listener immediately to prevent firing on next pages
+      window.removeEventListener('message', calibrationMessageHandler);
+
+      const calibrationIframe = document.getElementById('calibration-iframe');
+      if (calibrationIframe) {
+        // 3. Hide iframe and restore tracking state props
+        Object.assign(calibrationIframe.style, {
+          width: '100%',     // Keep full width for coordinate mapping
+          height: '100vh',   // Keep full height
+          opacity: '0.01',   // Hidden but rendering
+          zIndex: '-1',
+          pointerEvents: 'none',
+          background: 'transparent' // Restore transparency
+        });
+
+        // Resume tracking
+        calibrationIframe.contentWindow.postMessage({ type: 'resume-tracking' }, '*');
+      }
+      Qualtrics.SurveyEngine.setEmbeddedData('recalibrated_at_Q10', true);
+
+      // Click Next after delay
+      setTimeout(function() {
+        var nextBtn = document.querySelector('#NextButton');
+        if (nextBtn) nextBtn.click();
+      }, 1500);
+    }
+  };
+
   function showRecalibration() {
+    // Reset flag when starting recalibration
+    window.recalibrationHasAdvanced = false;
+    
     document.getElementById('recalibration-prompt').style.display = 'none';
     document.querySelector('#NextButton').style.display = 'none';
     const calibrationIframe = document.getElementById('calibration-iframe');
     if (calibrationIframe) {
-      // 1. Make iframe visible (modal style) - DO NOT MOVE in DOM to avoid double reload
+      // 1. Make iframe visible (modal style)
       Object.assign(calibrationIframe.style, {
         position: 'fixed',
         top: '0',
@@ -327,7 +368,7 @@ Qualtrics.SurveyEngine.addOnload(function() {
         opacity: '1'
       });
 
-      // 2. Trigger recalibration via MESSAGE (no reload)
+      // 2. Trigger recalibration
       calibrationIframe.contentWindow.postMessage({ type: 'recalibrate' }, '*');
     }
   }
@@ -336,26 +377,12 @@ Qualtrics.SurveyEngine.addOnload(function() {
     document.querySelector('#NextButton').click();
   }
 
-  window.addEventListener('message', function(event) {
-    if (event.data.type === 'calibration-complete') {
-      const calibrationIframe = document.getElementById('calibration-iframe');
-      if (calibrationIframe) {
-        // 3. Hide iframe and restore tracking state props
-        Object.assign(calibrationIframe.style, {
-          width: '100%',     // Keep full width for coordinate mapping
-          height: '100vh',   // Keep full height
-          opacity: '0.01',   // Hidden but rendering
-          zIndex: '-1',
-          pointerEvents: 'none',
-          background: 'transparent' // Restore transparency
-        });
-        
-        // Resume tracking
-        calibrationIframe.contentWindow.postMessage({ type: 'resume-tracking' }, '*');
-      }
-      Qualtrics.SurveyEngine.setEmbeddedData('recalibrated_at_Q10', true);
-      setTimeout(function() { document.querySelector('#NextButton').click(); }, 1500);
-    }
+  // Add listener
+  window.addEventListener('message', calibrationMessageHandler);
+
+  // CLEANUP: Remove listener when page unloads to prevent double-firing on next page
+  Qualtrics.SurveyEngine.addOnUnload(function() {
+    window.removeEventListener('message', calibrationMessageHandler);
   });
 </script>
 

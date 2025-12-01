@@ -89,8 +89,11 @@ Qualtrics.SurveyEngine.addOnload(function() {
   iframe.style.zIndex = '1';
 
   // Listen for calibration-complete message from iframe
-  window.addEventListener('message', function(event) {
+  const messageHandler = function(event) {
     if (event.data.type === 'calibration-complete') {
+      // Remove listener immediately to prevent firing on future pages
+      window.removeEventListener('message', messageHandler);
+
       console.log('[Q1] Calibration complete, hiding iframe');
 
       // Save calibration data to embedded data
@@ -117,7 +120,9 @@ Qualtrics.SurveyEngine.addOnload(function() {
         document.getElementById('NextButton').click();
       }, 1000);
     }
-  });
+  };
+
+  window.addEventListener('message', messageHandler);
 });
 */
 
@@ -252,7 +257,46 @@ Qualtrics.SurveyEngine.addOnload(function() {
 </div>
 
 <script>
+  // Define handler globally so we can remove it later
+  var calibrationMessageHandler = function(event) {
+    if (event.data.type === 'calibration-complete') {
+      // Prevent double-firing
+      if (window.recalibrationHasAdvanced) return;
+      window.recalibrationHasAdvanced = true;
+
+      // Remove listener immediately to prevent firing on next pages
+      window.removeEventListener('message', calibrationMessageHandler);
+
+      const calibrationIframe = document.getElementById('calibration-iframe');
+      if (calibrationIframe) {
+        // Restore hidden state
+        Object.assign(calibrationIframe.style, {
+          width: '100%',
+          height: '100vh',
+          opacity: '0.01',
+          zIndex: '-1',
+          pointerEvents: 'none',
+          background: 'transparent'
+        });
+
+        // Resume tracking
+        calibrationIframe.contentWindow.postMessage({ type: 'resume-tracking' }, '*');
+      }
+
+      Qualtrics.SurveyEngine.setEmbeddedData('recalibrated_at_Q10', true); // UPDATE QUESTION NUMBER
+
+      // Auto-advance
+      setTimeout(function() {
+        var nextBtn = document.querySelector('#NextButton');
+        if (nextBtn) nextBtn.click();
+      }, 1500);
+    }
+  };
+
   function showRecalibration() {
+    // Reset flag when starting recalibration
+    window.recalibrationHasAdvanced = false;
+
     document.getElementById('recalibration-prompt').style.display = 'none';
     document.querySelector('#NextButton').style.display = 'none';
 
@@ -260,7 +304,6 @@ Qualtrics.SurveyEngine.addOnload(function() {
     const calibrationIframe = document.getElementById('calibration-iframe');
     if (calibrationIframe) {
       // Show the iframe for recalibration (overlay mode)
-      // DO NOT MOVE in DOM to avoid reload
       Object.assign(calibrationIframe.style, {
         position: 'fixed',
         top: '0',
@@ -284,34 +327,12 @@ Qualtrics.SurveyEngine.addOnload(function() {
     document.querySelector('#NextButton').click();
   }
 
-  window.addEventListener('message', function(event) {
-    if (event.data.type === 'calibration-complete') {
-      // Hide calibration iframe and return to tracking mode
-      // Hide calibration iframe and return to tracking mode
-      const calibrationIframe = document.getElementById('calibration-iframe');
-      if (calibrationIframe) {
-        // Restore hidden state
-        Object.assign(calibrationIframe.style, {
-          width: '100%',
-          height: '100vh',
-          opacity: '0.01',
-          zIndex: '-1',
-          pointerEvents: 'none',
-          background: 'transparent'
-        });
+  // Add listener
+  window.addEventListener('message', calibrationMessageHandler);
 
-        // Resume tracking (iframe automatically switches to tracking mode after recalibration)
-        calibrationIframe.contentWindow.postMessage({ type: 'resume-tracking' }, '*');
-      }
-
-      // Save recalibration event
-      Qualtrics.SurveyEngine.setEmbeddedData('recalibrated_at_Q10', true);  // UPDATE QUESTION NUMBER
-
-      // Auto-advance
-      setTimeout(function() {
-        document.querySelector('#NextButton').click();
-      }, 1500);
-    }
+  // CLEANUP: Remove listener when page unloads
+  Qualtrics.SurveyEngine.addOnUnload(function() {
+    window.removeEventListener('message', calibrationMessageHandler);
   });
 </script>
 
