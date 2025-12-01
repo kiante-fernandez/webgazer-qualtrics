@@ -339,6 +339,7 @@ Qualtrics.SurveyEngine.addOnload(function() {
   window.addEventListener('message', function(event) {
     if (event.data.type === 'calibration-complete') {
       const calibrationIframe = document.getElementById('calibration-iframe');
+      if (calibrationIframe) {
         // 3. Hide iframe and restore tracking state props
         Object.assign(calibrationIframe.style, {
           width: '100%',     // Keep full width for coordinate mapping
