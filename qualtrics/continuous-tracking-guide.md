@@ -313,14 +313,21 @@ Qualtrics.SurveyEngine.addOnload(function() {
     document.querySelector('#NextButton').style.display = 'none';
     const calibrationIframe = document.getElementById('calibration-iframe');
     if (calibrationIframe) {
-      calibrationIframe.style.position = 'relative';
-      calibrationIframe.style.width = '100%';
-      calibrationIframe.style.height = '800px';
-      calibrationIframe.style.visibility = 'visible';
-      calibrationIframe.style.pointerEvents = 'auto';
-      calibrationIframe.style.zIndex = 'auto';
-      calibrationIframe.style.border = '2px solid #3498db';
-      document.getElementById('recalibration-container').appendChild(calibrationIframe);
+      // 1. Make iframe visible (modal style) - DO NOT MOVE in DOM to avoid double reload
+      Object.assign(calibrationIframe.style, {
+        position: 'fixed',
+        top: '0',
+        left: '0',
+        width: '100%',
+        height: '100%',
+        visibility: 'visible',
+        pointerEvents: 'auto',
+        zIndex: '9999',
+        background: 'white',
+        opacity: '1'
+      });
+
+      // 2. Trigger recalibration via MESSAGE (no reload)
       calibrationIframe.contentWindow.postMessage({ type: 'recalibrate' }, '*');
     }
   }
@@ -332,18 +339,17 @@ Qualtrics.SurveyEngine.addOnload(function() {
   window.addEventListener('message', function(event) {
     if (event.data.type === 'calibration-complete') {
       const calibrationIframe = document.getElementById('calibration-iframe');
-      if (calibrationIframe) {
-        // Use opacity: 0.01 to avoid RAF throttling, keep full size for coordinates
-        calibrationIframe.style.width = '100%';
-        calibrationIframe.style.height = '100vh';
-        calibrationIframe.style.position = 'fixed';
-        calibrationIframe.style.top = '0';
-        calibrationIframe.style.left = '0';
-        calibrationIframe.style.opacity = '0.01';
-        calibrationIframe.style.border = 'none';
-        calibrationIframe.style.pointerEvents = 'none';
-        calibrationIframe.style.zIndex = '-1';
-        document.body.appendChild(calibrationIframe);
+        // 3. Hide iframe and restore tracking state props
+        Object.assign(calibrationIframe.style, {
+          width: '100%',     // Keep full width for coordinate mapping
+          height: '100vh',   // Keep full height
+          opacity: '0.01',   // Hidden but rendering
+          zIndex: '-1',
+          pointerEvents: 'none',
+          background: 'transparent' // Restore transparency
+        });
+        
+        // Resume tracking
         calibrationIframe.contentWindow.postMessage({ type: 'resume-tracking' }, '*');
       }
       Qualtrics.SurveyEngine.setEmbeddedData('recalibrated_at_Q10', true);

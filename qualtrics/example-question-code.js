@@ -259,17 +259,20 @@ Qualtrics.SurveyEngine.addOnload(function() {
     // Find the persistent calibration iframe
     const calibrationIframe = document.getElementById('calibration-iframe');
     if (calibrationIframe) {
-      // Show the iframe for recalibration
-      calibrationIframe.style.position = 'relative';
-      calibrationIframe.style.width = '100%';
-      calibrationIframe.style.height = '800px';
-      calibrationIframe.style.visibility = 'visible';
-      calibrationIframe.style.pointerEvents = 'auto';
-      calibrationIframe.style.zIndex = 'auto';
-      calibrationIframe.style.border = '2px solid #3498db';
-
-      // Move back to container if it was moved to body
-      document.getElementById('recalibration-container').appendChild(calibrationIframe);
+      // Show the iframe for recalibration (overlay mode)
+      // DO NOT MOVE in DOM to avoid reload
+      Object.assign(calibrationIframe.style, {
+        position: 'fixed',
+        top: '0',
+        left: '0',
+        width: '100%',
+        height: '100%',
+        visibility: 'visible',
+        pointerEvents: 'auto',
+        zIndex: '9999',
+        background: 'white',
+        opacity: '1'
+      });
 
       // Send recalibrate command to iframe
       calibrationIframe.contentWindow.postMessage({ type: 'recalibrate' }, '*');
@@ -284,21 +287,18 @@ Qualtrics.SurveyEngine.addOnload(function() {
   window.addEventListener('message', function(event) {
     if (event.data.type === 'calibration-complete') {
       // Hide calibration iframe and return to tracking mode
+      // Hide calibration iframe and return to tracking mode
       const calibrationIframe = document.getElementById('calibration-iframe');
       if (calibrationIframe) {
-        // Use opacity: 0.01 to avoid RAF throttling, keep full size for coordinates
-        calibrationIframe.style.width = '100%';
-        calibrationIframe.style.height = '100vh';
-        calibrationIframe.style.position = 'fixed';
-        calibrationIframe.style.top = '0';
-        calibrationIframe.style.left = '0';
-        calibrationIframe.style.opacity = '0.01';
-        calibrationIframe.style.border = 'none';
-        calibrationIframe.style.pointerEvents = 'none';
-        calibrationIframe.style.zIndex = '-1';
-
-        // Move back to document.body
-        document.body.appendChild(calibrationIframe);
+        // Restore hidden state
+        Object.assign(calibrationIframe.style, {
+          width: '100%',
+          height: '100vh',
+          opacity: '0.01',
+          zIndex: '-1',
+          pointerEvents: 'none',
+          background: 'transparent'
+        });
 
         // Resume tracking (iframe automatically switches to tracking mode after recalibration)
         calibrationIframe.contentWindow.postMessage({ type: 'resume-tracking' }, '*');
