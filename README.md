@@ -1,5 +1,7 @@
 # WebGazer for Qualtrics
 
+> **Note:** This branch uses the legacy WebGazer.js library. For the latest version using WebEyeTrack with improved accuracy and features, please use the **[webeyetrack-qualtrics](https://github.com/kiante-fernandez/webgazer-qualtrics/tree/webeyetrack-qualtrics)** branch.
+
 Add webcam-based eye tracking calibration to your Qualtrics surveys using [jsPsych](https://www.jspsych.org/) and [WebGazer.js](https://webgazer.cs.brown.edu/).
 
 **Live Demo:** [https://kiante-fernandez.github.io/webgazer-qualtrics/](https://kiante-fernandez.github.io/webgazer-qualtrics/)
