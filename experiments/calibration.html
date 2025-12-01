@@ -77,36 +77,74 @@
     var timeline = [];
 
     // Welcome + Camera Permission Screen
-    timeline.push({
-      type: jsPsychHtmlButtonResponse,
-      stimulus: `
-        <div style="text-align: center; padding: 20px; max-width: 600px; margin: 0 auto;">
-          <h2>Eye Tracking Calibration</h2>
-          <p>This study requires eye tracking to verify human participation.</p>
-          <p><strong>Camera Permission Required:</strong> You will be asked to allow camera access. This is necessary for eye tracking.</p>
-          <p id="camera-status" style="color: #999; margin-top: 20px;">
-            <em>Initializing camera...</em>
-          </p>
-        </div>
-      `,
-      choices: ['Continue'],
-      on_load: async function() {
-        // Disable the button initially
-        const continueBtn = document.querySelector('.jspsych-btn');
-        if (continueBtn) continueBtn.disabled = true;
+    // Check if we are in recalibration mode
+    const urlParams = new URLSearchParams(window.location.search);
+    const isRecalibrating = urlParams.get('recalibrate') === 'true';
 
-        try {
-          await adapter.init();
-          document.getElementById('camera-status').innerHTML =
-            '<span style="color: #2ecc71;">Camera ready</span>';
-          if (continueBtn) continueBtn.disabled = false;
-        } catch (e) {
-          document.getElementById('camera-status').innerHTML =
-            '<span style="color: #e74c3c;">Camera initialization failed: ' + e.message + '</span>';
-          // Keep button disabled - user cannot proceed
+    // Welcome + Camera Permission Screen (Conditional)
+    if (isRecalibrating) {
+      // Streamlined flow for recalibration
+      timeline.push({
+        type: jsPsychHtmlButtonResponse,
+        stimulus: `
+          <div style="text-align: center; padding: 20px; max-width: 600px; margin: 0 auto;">
+            <h2>Recalibrating...</h2>
+            <p>Restarting camera and calibration sequence.</p>
+            <p id="camera-status" style="color: #999; margin-top: 20px;">
+              <em>Initializing camera...</em>
+            </p>
+          </div>
+        `,
+        choices: [], // No buttons, auto-proceed
+        on_load: async function() {
+          try {
+            await adapter.init();
+            document.getElementById('camera-status').innerHTML =
+              '<span style="color: #2ecc71;">Camera ready</span>';
+            
+            // Auto-advance after short delay
+            setTimeout(() => {
+              jsPsych.finishTrial();
+            }, 1000);
+          } catch (e) {
+            document.getElementById('camera-status').innerHTML =
+              '<span style="color: #e74c3c;">Camera initialization failed: ' + e.message + '</span>';
+          }
         }
-      }
-    });
+      });
+    } else {
+      // Standard Welcome Flow
+      timeline.push({
+        type: jsPsychHtmlButtonResponse,
+        stimulus: `
+          <div style="text-align: center; padding: 20px; max-width: 600px; margin: 0 auto;">
+            <h2>Eye Tracking Calibration</h2>
+            <p>This study requires eye tracking to verify human participation.</p>
+            <p><strong>Camera Permission Required:</strong> You will be asked to allow camera access. This is necessary for eye tracking.</p>
+            <p id="camera-status" style="color: #999; margin-top: 20px;">
+              <em>Initializing camera...</em>
+            </p>
+          </div>
+        `,
+        choices: ['Continue'],
+        on_load: async function() {
+          // Disable the button initially
+          const continueBtn = document.querySelector('.jspsych-btn');
+          if (continueBtn) continueBtn.disabled = true;
+
+          try {
+            await adapter.init();
+            document.getElementById('camera-status').innerHTML =
+              '<span style="color: #2ecc71;">Camera ready</span>';
+            if (continueBtn) continueBtn.disabled = false;
+          } catch (e) {
+            document.getElementById('camera-status').innerHTML =
+              '<span style="color: #e74c3c;">Camera initialization failed: ' + e.message + '</span>';
+            // Keep button disabled - user cannot proceed
+          }
+        }
+      });
+    }
 
     // Calibration Sequence Function
     function create_calibration_sequence() {
@@ -398,7 +436,11 @@
           // This is harder with jsPsych running an infinite trial.
           // We might need to stop the current trial?
           // For now, ignore or reload page.
-          location.reload();
+          // Handle recalibration request
+          // Reload page with query param to trigger streamlined flow
+          const currentUrl = new URL(window.location.href);
+          currentUrl.searchParams.set('recalibrate', 'true');
+          window.location.href = currentUrl.toString();
           break;
       }
     });

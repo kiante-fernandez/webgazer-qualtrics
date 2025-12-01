@@ -361,32 +361,29 @@ Qualtrics.SurveyEngine.addOnload(function() {
 5. **Copy and paste this JavaScript**:
 
 ```javascript
-(function(questionId) {  // ← Pass your Q# here, e.g., 'Q20'
+(function (questionId) {
   let gazeData = [];
   let gazeListener = null;
   let viewportInterval = null;
   let trackingStartTime = 0;
 
-  Qualtrics.SurveyEngine.addOnload(function() {
+  Qualtrics.SurveyEngine.addOnload(function () {
     const iframe = document.getElementById('calibration-iframe');
     if (!iframe) {
-      console.error('[' + questionId + '] Persistent iframe not found!');
+      console.error('[' + questionId + '] Persistent iframe not found! Make sure Header code is installed.');
       return;
     }
 
     gazeData = [];
     trackingStartTime = performance.now();
 
-    // Iframe is already in tracking mode, so start tracking immediately
-    // (tracks during prompt and recalibration)
-    console.log('[' + questionId + '] Sending start-tracking command');
     iframe.contentWindow.postMessage({
       type: 'start-tracking',
       questionId: questionId,
       questionStartTime: trackingStartTime
     }, '*');
 
-    viewportInterval = setInterval(function() {
+    viewportInterval = setInterval(function () {
       if (iframe.contentWindow) {
         iframe.contentWindow.postMessage({
           type: 'viewport-update',
@@ -396,25 +393,34 @@ Qualtrics.SurveyEngine.addOnload(function() {
       }
     }, 100);
 
-    gazeListener = function(event) {
+    gazeListener = function (event) {
       if (event.data.type === 'gaze-data') {
-        if (gazeData.length === 0) {
-          console.log('[' + questionId + '] First gaze data received:', event.data);
+        // Ensure valid data before pushing
+        if (typeof event.data.x === 'number' && typeof event.data.y === 'number') {
+          gazeData.push({
+            t: Math.round(event.data.timestamp - trackingStartTime),
+            x: Math.round(event.data.x),
+            y: Math.round(event.data.y)
+          });
         }
+      } else if (event.data.type === 'gaze-data-batch') {
+        // Handle batch data (note: this usually arrives AFTER page submit, so it might be too late for saving)
+        event.data.samples.forEach(s => {
+          // FIX: Use s.timestamp instead of s.perf_t
+          const timestamp = s.timestamp !== undefined ? s.timestamp : s.perf_t;
 
-        gazeData.push({
-          t: Math.round(event.data.timestamp - trackingStartTime),
-          x: Math.round(event.data.x),
-          y: Math.round(event.data.y)
+          gazeData.push({
+            t: Math.round(timestamp - trackingStartTime),
+            x: Math.round(s.x),
+            y: Math.round(s.y)
+          });
         });
       }
     };
     window.addEventListener('message', gazeListener);
   });
 
-  Qualtrics.SurveyEngine.addOnPageSubmit(function() {
-    console.log('[' + questionId + '] Saving gaze data. Sample count:', gazeData.length);
-
+  Qualtrics.SurveyEngine.addOnPageSubmit(function () {
     const trackingIframe = document.getElementById('calibration-iframe');
     if (trackingIframe) {
       trackingIframe.contentWindow.postMessage({ type: 'pause-tracking' }, '*');
@@ -423,17 +429,19 @@ Qualtrics.SurveyEngine.addOnload(function() {
     if (viewportInterval) {
       clearInterval(viewportInterval);
     }
-    if (gazeListener) {
-      window.removeEventListener('message', gazeListener);
-    }
 
-    // Save as JSON format for reliability
+    // Delay listener removal slightly
+    setTimeout(() => {
+      if (gazeListener) {
+        window.removeEventListener('message', gazeListener);
+      }
+    }, 1000);
+
+    // Save as JSON
     const dataToSave = JSON.stringify(gazeData);
-    console.log('[' + questionId + '] Data length:', dataToSave.length, 'bytes');
-    console.log('[' + questionId + '] First 200 chars:', dataToSave.substring(0, 200));
     Qualtrics.SurveyEngine.setEmbeddedData('gaze_' + questionId, dataToSave);
   });
-})('Q10');  // ← Change ONLY this to your questionId, e.g., ('Q20')
+})('Q10');
 ```
 
 6. **Update question IDs** in TWO places:
