@@ -471,8 +471,19 @@ Qualtrics.SurveyEngine.addOnload(function() {
       }
     }, 1000);
 
-    // Save as JSON
-    const dataToSave = JSON.stringify(gazeData);
+    // Save as Array of Arrays to save space (Method 3)
+    // Format: [[t,x,y], [t,x,y], ...]
+    if (gazeData.length > 0) {
+      console.log('[' + questionId + '] First sample:', gazeData[0]);
+    }
+
+    const arrayData = gazeData.map(p => [
+      p.t !== undefined ? Math.round(p.t) : 0,
+      p.x !== undefined ? Math.round(p.x) : 0,
+      p.y !== undefined ? Math.round(p.y) : 0
+    ]);
+
+    const dataToSave = JSON.stringify(arrayData);
     Qualtrics.SurveyEngine.setEmbeddedData('gaze_' + questionId, dataToSave);
   });
 })('Q10');
@@ -502,16 +513,17 @@ Your continuous eye tracking is now set up. When participants take your survey:
 ## Reference
 
 ### Data Format
-
-Gaze data is saved as a **JSON string**: `[{"t":0,"x":512,"y":384},{"t":67,"x":515,"y":386},...]`
-
-Where:
-- `t` = Timestamp in ms (relative to question start)
-- `x`, `y` = Gaze coordinates in pixels (relative to viewport)
-
-**Example:** `gaze_Q2 = [{"t":0,"x":512,"y":384},{"t":67,"x":515,"y":386},...]`
-
-**Data Size:** At 15 Hz, expect ~2-3 KB per 5-second question. A 50-question survey = ~150 KB (well within Qualtrics limits).
+ 
+Gaze data is saved as a **JSON Array of Arrays**: `[[0,512,384],[67,515,386],...]`
+ 
+Where each inner array contains:
+- `[0]` = Timestamp in ms (relative to question start)
+- `[1]` = Gaze X coordinate in pixels
+- `[2]` = Gaze Y coordinate in pixels
+ 
+**Example:** `gaze_Q2 = [[0,512,384],[67,515,386],...]`
+ 
+**Data Size:** This format saves ~50% space compared to standard JSON. At 15 Hz, expect ~1-1.5 KB per 5-second question.5 KB per 5-second question.
 
 ### Configuration
 

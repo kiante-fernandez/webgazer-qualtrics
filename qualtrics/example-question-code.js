@@ -218,8 +218,20 @@ Qualtrics.SurveyEngine.addOnload(function() {
       }
     }, 1000);
 
-    // Save as JSON
-    const dataToSave = JSON.stringify(gazeData);
+    // Save as Array of Arrays to save space (Method 3)
+    // Format: [[t,x,y], [t,x,y], ...]
+    // This reduces size by ~50% compared to standard JSON while remaining safe.
+    if (gazeData.length > 0) {
+      console.log('[Q2] First sample:', gazeData[0]);
+    }
+
+    const arrayData = gazeData.map(p => [
+      p.t !== undefined ? Math.round(p.t) : 0,
+      p.x !== undefined ? Math.round(p.x) : 0,
+      p.y !== undefined ? Math.round(p.y) : 0
+    ]);
+
+    const dataToSave = JSON.stringify(arrayData);
     Qualtrics.SurveyEngine.setEmbeddedData('gaze_' + questionId, dataToSave);
   });
 })('Q2'); // Ensure this matches your Question ID
@@ -409,8 +421,18 @@ Qualtrics.SurveyEngine.addOnload(function() {
       window.removeEventListener('message', gazeListener);
     }
 
-    // Save as JSON format for reliability
-    const dataToSave = JSON.stringify(gazeData);
+    // Save as Array of Arrays to save space (Method 3)
+    if (gazeData.length > 0) {
+      console.log('[' + questionId + '] First sample:', gazeData[0]);
+    }
+
+    const arrayData = gazeData.map(p => [
+      p.t !== undefined ? Math.round(p.t) : 0,
+      p.x !== undefined ? Math.round(p.x) : 0,
+      p.y !== undefined ? Math.round(p.y) : 0
+    ]);
+
+    const dataToSave = JSON.stringify(arrayData);
     console.log('[' + questionId + '] 💾 Data length:', dataToSave.length, 'bytes');
     console.log('[' + questionId + '] 💾 First 200 chars:', dataToSave.substring(0, 200));
     Qualtrics.SurveyEngine.setEmbeddedData('gaze_' + questionId, dataToSave);
@@ -457,8 +479,8 @@ Qualtrics.SurveyEngine.addOnload(function() {
 // DATA FORMAT
 // ============================================================================
 /*
- * Gaze data is stored in compressed format:
- * Format: "t1,x1,y1|t2,x2,y2|t3,x3,y3|..."
+ * Gaze data is stored in Array of Arrays format (Method 3):
+ * Format: "[[t1,x1,y1], [t2,x2,y2], ...]"
  *
  * Where:
  * - t = timestamp in milliseconds (relative to question start)
@@ -466,17 +488,19 @@ Qualtrics.SurveyEngine.addOnload(function() {
  * - y = gaze y-coordinate in pixels (relative to viewport)
  *
  * Example:
- * "0,512,384|67,515,386|134,518,390|201,520,392|..."
+ * "[[0,512,384],[67,515,386],[134,518,390],...]"
  *
  * To parse in R:
- *   library(tidyr)
- *   gaze_df <- data.frame(raw = unlist(strsplit(gaze_data, "\\|")))
- *   gaze_df <- separate(gaze_df, raw, into = c("t", "x", "y"), sep = ",", convert = TRUE)
+ *   library(jsonlite)
+ *   gaze_list <- fromJSON(gaze_data)
+ *   gaze_df <- as.data.frame(gaze_list)
+ *   colnames(gaze_df) <- c("t", "x", "y")
  *
  * To parse in Python:
+ *   import json
  *   import pandas as pd
- *   samples = [s.split(',') for s in gaze_data.split('|')]
- *   df = pd.DataFrame(samples, columns=['t', 'x', 'y'], dtype=int)
+ *   data = json.loads(gaze_data)
+ *   df = pd.DataFrame(data, columns=['t', 'x', 'y'])
  */
 
 // ============================================================================
