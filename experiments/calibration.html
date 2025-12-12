@@ -37,46 +37,29 @@
     // Initialize jsPsych
     var jsPsych = initJsPsych({
       on_finish: function (data) {
-        // Use the final_validation_data we captured
+        // Note: calibration-complete message is sent from the timeline step, not here
+        // This callback is only reached in standalone mode when timeline completes
         var validation_data = final_validation_data;
 
-        // Save model key (WebEyeTrack handles persistence internally usually, but we simulate a key)
-        var model_key = 'webeyetrack_model_' + Date.now();
+        console.log('Calibration complete!');
+        console.log('Validation data:', validation_data);
 
-        // Send data to parent window
-        if (window.parent !== window) {
-          window.parent.postMessage({
-            type: 'calibration-complete',
-            average_offset: validation_data ? validation_data.rmse : null,
-            recalibrated: calibration_attempts > 1,
-            calibration_attempts: calibration_attempts,
-            validation_data: validation_data,
-            model_key: model_key
-          }, '*');
-          console.log('Sent calibration data to parent window');
-        } else {
-          // Standalone mode
-          console.log('Calibration complete!');
-          console.log('Validation data:', validation_data);
+        var offset_text = validation_data && validation_data.rmse !== undefined
+          ? validation_data.rmse.toFixed(2) + ' (RMSE)'
+          : 'Not available';
 
-          var offset_text = validation_data && validation_data.rmse !== undefined
-            ? validation_data.rmse.toFixed(2) + ' (RMSE)'
-            : 'Not available';
-
-          document.querySelector('#jspsych-target').innerHTML =
-            '<div style="text-align: center; padding: 50px; font-family: sans-serif;">' +
-            '<h2>Calibration Complete!</h2>' +
-            '<p>Accuracy: ' + offset_text + '</p>' +
-            '<p>Calibration attempts: ' + calibration_attempts + '</p>' +
-            '<p style="color: #666; font-size: 14px;">Check console for full data</p>' +
-            '</div>';
-        }
+        document.querySelector('#jspsych-target').innerHTML =
+          '<div style="text-align: center; padding: 50px; font-family: sans-serif;">' +
+          '<h2>Calibration Complete!</h2>' +
+          '<p>Accuracy: ' + offset_text + '</p>' +
+          '<p>Calibration attempts: ' + calibration_attempts + '</p>' +
+          '<p style="color: #666; font-size: 14px;">Check console for full data</p>' +
+          '</div>';
       }
     });
 
     var timeline = [];
 
-    // Welcome + Camera Permission Screen
     // Welcome + Camera Permission Screen
     timeline.push({
       type: jsPsychHtmlButtonResponse,
@@ -424,7 +407,17 @@
             isTracking = true;
           }).catch(e => {
             console.error('[Calibration] Recalibration failed:', e);
-            // Resume anyway?
+
+            // Notify parent of failure
+            if (window.parent !== window) {
+              window.parent.postMessage({
+                type: 'calibration-failed',
+                error: e.message || 'Recalibration failed',
+                calibration_attempts: calibration_attempts
+              }, '*');
+            }
+
+            // Resume tracking with previous calibration
             isTracking = true;
           });
           break;

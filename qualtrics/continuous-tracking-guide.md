@@ -84,7 +84,8 @@ gaze_Q12
 
   const iframe = document.createElement('iframe');
   iframe.id = 'calibration-iframe';
-  iframe.src = 'https://kiante-fernandez.github.io/webgazer-qualtrics/experiments/calibration.html';
+  // IMPORTANT: Replace this URL with your own hosted calibration.html
+  iframe.src = 'https://YOUR-USERNAME.github.io/webgazer-qualtrics/experiments/calibration.html';
   iframe.allow = 'camera; microphone';
   iframe.style.position = 'fixed';
   iframe.style.bottom = '0';
@@ -275,8 +276,13 @@ Qualtrics.SurveyEngine.addOnload(function() {
       }
     }, 1000);
 
-    // Save as JSON
-    const dataToSave = JSON.stringify(gazeData);
+    // Save as Array of Arrays to save space: [[t,x,y], [t,x,y], ...]
+    const arrayData = gazeData.map(p => [
+      p.t !== undefined ? Math.round(p.t) : 0,
+      p.x !== undefined ? Math.round(p.x) : 0,
+      p.y !== undefined ? Math.round(p.y) : 0
+    ]);
+    const dataToSave = JSON.stringify(arrayData);
     Qualtrics.SurveyEngine.setEmbeddedData('gaze_' + questionId, dataToSave);
   });
 })('Q2');
@@ -523,11 +529,11 @@ Where each inner array contains:
  
 **Example:** `gaze_Q2 = [[0,512,384],[67,515,386],...]`
  
-**Data Size:** This format saves ~50% space compared to standard JSON. At 15 Hz, expect ~1-1.5 KB per 5-second question.5 KB per 5-second question.
+**Data Size:** This format saves ~50% space compared to standard JSON. At 15 Hz, expect ~1-1.5 KB per 5-second question.
 
 ### Configuration
 
-**Sampling Rate:** Default is 15 Hz. To increase fidelity, edit [calibration.html:251](../experiments/calibration.html#L251) and change `samplingRate = 15` to 30 or 60 Hz. Higher rates generate more data.
+**Sampling Rate:** Default sampling rate is determined by the WebEyeTrack library (typically 15-30 Hz depending on device). Higher rates generate more data.
 
 **Recalibration Frequency:** Consider adding recalibration questions at any interval (Q5, Q15, Q25) or skip entirely.
 
@@ -549,7 +555,7 @@ Where each inner array contains:
 - Check browser console for errors
 - Ensure embedded data fields set up in Survey Flow
 - Verify `questionId` matches in both `addOnload` and `addOnPageSubmit`
-- Look for `[Calibration] WebGazer is producing predictions` in console
+- Look for `[Calibration] Sample #` messages in console to verify tracking is active
 
 **Coordinates Wrong or NaN/Null**
 - Verify calibration completed successfully
