@@ -15,190 +15,67 @@
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
       line-height: 1.6;
       color: #333;
-      background: #f5f5f5;
+      background: #fafafa;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .container {
-      max-width: 900px;
-      margin: 0 auto;
-      padding: 40px 20px;
-    }
-
-    header {
-      background: white;
-      padding: 40px 20px;
-      margin-bottom: 40px;
-      border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      max-width: 600px;
       text-align: center;
+      padding: 60px 40px;
     }
 
     h1 {
-      font-size: 2.5em;
-      margin-bottom: 10px;
-      color: #2c3e50;
+      font-size: 2rem;
+      font-weight: 500;
+      color: #1a1a1a;
+      margin-bottom: 16px;
     }
 
-    .subtitle {
-      font-size: 1.2em;
+    .description {
+      font-size: 1.1rem;
       color: #666;
-      margin-bottom: 20px;
-    }
-
-    .section {
-      background: white;
-      padding: 30px;
-      margin-bottom: 30px;
-      border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-
-    h2 {
-      color: #2c3e50;
-      margin-bottom: 20px;
-      padding-bottom: 10px;
-      border-bottom: 2px solid #3498db;
-    }
-
-    .quick-start {
-      background: #f8f9fa;
-      padding: 20px;
-      border-radius: 6px;
-      border-left: 4px solid #3498db;
-    }
-
-    .quick-start ol {
-      margin-left: 20px;
-      margin-top: 15px;
-    }
-
-    .quick-start li {
-      margin-bottom: 10px;
+      margin-bottom: 40px;
     }
 
     .demo-link {
       display: inline-block;
-      background: #3498db;
+      background: #1a1a1a;
       color: white;
-      padding: 12px 24px;
+      padding: 14px 32px;
       text-decoration: none;
       border-radius: 4px;
-      font-size: 1.1em;
+      font-size: 1rem;
       transition: background 0.2s;
-      margin: 20px 0;
     }
 
     .demo-link:hover {
-      background: #2980b9;
-    }
-
-    .resources {
-      list-style: none;
-    }
-
-    .resources li {
-      margin-bottom: 15px;
-    }
-
-    .resources a {
-      display: inline-flex;
-      align-items: center;
-      color: #3498db;
-      text-decoration: none;
-      font-size: 1.1em;
-      transition: color 0.2s;
-    }
-
-    .resources a:hover {
-      color: #2980b9;
-      text-decoration: underline;
-    }
-
-    .resources a::before {
-      content: "→";
-      margin-right: 10px;
-      font-weight: bold;
+      background: #333;
     }
 
     footer {
+      position: fixed;
+      bottom: 20px;
+      left: 0;
+      right: 0;
       text-align: center;
-      padding: 40px 20px;
-      color: #666;
-      font-size: 0.9em;
-    }
-
-    code {
-      background: #f4f4f4;
-      padding: 2px 6px;
-      border-radius: 3px;
-      font-family: 'Courier New', monospace;
-      font-size: 0.9em;
-    }
-
-    .info-box {
-      background: #fff3cd;
-      padding: 20px;
-      border-radius: 6px;
-      border-left: 4px solid #ffc107;
-      margin: 20px 0;
+      color: #999;
+      font-size: 0.85rem;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <header>
-      <h1>WebEyeTrack for Qualtrics</h1>
-      <p class="subtitle">Eye tracking calibration for survey research</p>
-    </header>
-
-    <div class="section quick-start">
-      <h2>Quick Start</h2>
-      <p><strong>Add eye tracking calibration to your Qualtrics survey:</strong></p>
-      <ol>
-        <li>Create a <strong>Text/Graphic</strong> question in Qualtrics</li>
-        <li>Switch to <strong>HTML view</strong> and paste the iframe code</li>
-        <li><strong>Done!</strong> Calibration data automatically saves to embedded data</li>
-      </ol>
-      <p style="margin-top: 15px;">
-        See the <a href="qualtrics/" style="color: #3498db;">Integration Guide</a> for complete copy-paste code.
-      </p>
-    </div>
-
-    <div class="section">
-      <h2>Try the Demo</h2>
-      <p>Test the eye tracking calibration experiment:</p>
-      <a href="experiments/calibration.html" class="demo-link" target="_blank">Launch Demo</a>
-      <p style="margin-top: 15px; color: #666; font-size: 0.95em;">
-        The demo includes camera permission flow, clear instructions, calibration with green dots, validation with blue dots, and optional recalibration if accuracy is low.
-      </p>
-    </div>
-
-    <div class="section">
-      <h2>Documentation & Resources</h2>
-      <ul class="resources">
-        <li>
-          <a href="qualtrics/">Qualtrics Integration Guide</a>
-          <span style="color: #666; margin-left: 10px; font-size: 0.9em;">Copy-paste code</span>
-        </li>
-        <li>
-          <a href="README.md">README</a>
-          <span style="color: #666; margin-left: 10px; font-size: 0.9em;">Technical details and setup</span>
-        </li>
-        <li>
-          <a href="https://github.com/kiante-fernandez/webgazer-qualtrics" target="_blank">GitHub Repository</a>
-          <span style="color: #666; margin-left: 10px; font-size: 0.9em;">Source code and issues</span>
-        </li>
-        <li>
-          <a href="https://www.jspsych.org/v8/overview/eye-tracking/" target="_blank">jsPsych Eye Tracking Docs</a>
-          <span style="color: #666; margin-left: 10px; font-size: 0.9em;">Learn about jsPsych eye tracking</span>
-        </li>
-      </ul>
-    </div>
+    <h1>Webcam Eye Tracking for Qualtrics</h1>
+    <p class="description">Browser-based eye tracking calibration for survey research</p>
+    <a href="experiments/calibration.html" class="demo-link">Launch Calibration</a>
   </div>
 
   <footer>
-    <p>Built with <a href="https://www.jspsych.org/" target="_blank" style="color: #3498db;">jsPsych</a> and <a href="https://github.com/RedForestAI/WebEyeTrack" target="_blank" style="color: #3498db;">WebEyeTrack</a></p>
-    <p style="margin-top: 10px;">Licensed under MIT</p>
+    <p>All rights reserved</p>
   </footer>
 </body>
 </html>
