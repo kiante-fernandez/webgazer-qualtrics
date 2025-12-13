@@ -102,7 +102,7 @@
         stimulus: `
           <div style="text-align: center; padding: 20px; max-width: 600px; margin: 0 auto;">
             <h3>Calibration Instructions</h3>
-            <p>Green dots will appear at different positions on your screen.</p>
+            <p>Dots will appear at different positions on your screen.</p>
             <p><strong>Please:</strong></p>
             <ul style="text-align: left; margin: 20px auto; display: inline-block;">
               <li>Look directly at each dot until it disappears</li>
@@ -142,53 +142,45 @@
     // Add calibration
     timeline = timeline.concat(create_calibration_sequence());
 
-    // Recalibration logic: Offer only if accuracy is poor
-    var recalibration_offer = {
+    // Auto-retry logic: If first attempt has poor accuracy, auto-retry once
+    var auto_retry = {
       timeline: [
         {
           type: jsPsychHtmlButtonResponse,
-          stimulus: function () {
-            var rmse = final_validation_data ? final_validation_data.rmse : 0;
-            var accuracy_msg = rmse > 0.08 ? "Accuracy is low." : "Accuracy is good.";
-            return `
-              <div style="text-align: center; padding: 20px;">
-                <h3>Calibration Check</h3>
-                <p>RMSE: ${rmse.toFixed(3)} (${accuracy_msg})</p>
-                <p>We recommend recalibrating to ensure best results.</p>
-              </div>
-            `;
-          },
-          choices: ['Recalibrate', 'Continue Anyway']
-        },
-        {
-          timeline: create_calibration_sequence(),
-          conditional_function: function () {
-            var last_response = jsPsych.data.get().last(1).values()[0];
-            return last_response.response === 0; // 0 is 'Recalibrate'
-          }
+          stimulus: `
+            <div style="text-align: center; padding: 60px 40px; max-width: 600px; margin: 0 auto;">
+              <p style="font-size: 1.1rem; color: #333; line-height: 1.6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+                It seems like you might have looked away.
+              </p>
+              <p style="font-size: 1rem; color: #666; margin-top: 16px;">
+                Let's try again...
+              </p>
+            </div>
+          `,
+          choices: [],
+          trial_duration: 2000
         }
-      ],
+      ].concat(create_calibration_sequence()),
       conditional_function: function () {
-        // Only show this screen if RMSE is worse than threshold (0.08)
-        // Based on logs, good calibration is ~0.02 - 0.03
+        // Only auto-retry on first attempt if accuracy is poor
         var threshold = 0.08;
         var rmse = final_validation_data ? final_validation_data.rmse : null;
 
-        console.log('[Calibration] Checking recalibration condition:');
+        console.log('[Calibration] Checking auto-retry condition:');
         console.log('  RMSE:', rmse);
-        console.log('  Threshold:', threshold);
+        console.log('  Attempts:', calibration_attempts);
 
-        if (!final_validation_data || rmse === undefined || rmse === null) {
-          console.log('  Decision: SHOW recalibration (no validation data available)');
-          return true; // Safety fallback
+        // Only retry if: first attempt AND poor accuracy
+        if (calibration_attempts === 1 && rmse !== null && rmse > threshold) {
+          console.log('  Decision: AUTO-RETRY (first attempt with poor accuracy)');
+          return true;
         }
 
-        var shouldShow = rmse > threshold;
-        console.log('  Decision:', shouldShow ? 'SHOW recalibration (poor accuracy)' : 'SKIP recalibration (good accuracy)');
-        return shouldShow;
+        console.log('  Decision: PROCEED (good accuracy or already retried)');
+        return false;
       }
     };
-    timeline.push(recalibration_offer);
+    timeline.push(auto_retry);
 
     // Completion
     timeline.push({
