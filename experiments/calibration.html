@@ -64,10 +64,13 @@
     timeline.push({
       type: jsPsychHtmlButtonResponse,
       stimulus: `
-        <div style="text-align: center; padding: 20px; max-width: 600px; margin: 0 auto;">
+        <div style="text-align: center; padding: 20px; max-width: 700px; margin: 0 auto;">
           <h2>Eye Tracking Calibration</h2>
-          <p>This study requires eye tracking to verify human participation.</p>
-          <p><strong>Camera Permission Required:</strong> You will be asked to allow camera access. This is necessary for eye tracking.</p>
+          <p>This study requires eye tracking. To get started, complete the eye tracking calibration.</p>
+          <p><strong>Camera Permission Required:</strong> You will be asked to allow camera access and to complete a calibration task. This is necessary for eye tracking. Eye tracking does NOT record or save any video or pictures. Only the location of the screen you look at and timestamps will be saved.</p>
+          <img src="ET_explained.png" alt="Eye tracking only records coordinates and timestamps, not video" style="max-width: 400px; margin: 20px auto; display: block;">
+          <p>Follow the calibration instructions before advancing.</p>
+          <p style="font-size: 0.9rem; color: #666; margin-top: 20px;">By completing the calibration, you agree for us to record what part of the screen you are looking at, at any given time in the duration of completing this study. If you decide to withdraw from this study, any information collected will not be used.</p>
           <p id="camera-status" style="color: #999; margin-top: 20px;">
             <em>Initializing camera...</em>
           </p>
