@@ -92,6 +92,19 @@
             '<span style="color: #e74c3c;">Camera initialization failed: ' + e.message + '</span>';
           // Keep button disabled - user cannot proceed
         }
+      },
+      on_finish: function () {
+        // Request fullscreen when user clicks Continue
+        const elem = document.documentElement;
+        if (elem.requestFullscreen) {
+          elem.requestFullscreen().catch(err => {
+            console.warn('[Calibration] Could not enter fullscreen:', err.message);
+          });
+        } else if (elem.webkitRequestFullscreen) { // Safari
+          elem.webkitRequestFullscreen();
+        } else if (elem.msRequestFullscreen) { // IE/Edge
+          elem.msRequestFullscreen();
+        }
       }
     });
 
