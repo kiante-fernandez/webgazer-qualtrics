@@ -1,43 +1,27 @@
 /*
- * WebEyeTrack Continuous Tracking - Qualtrics Integration Templates
+ * Webcam Eye Tracking - Qualtrics Integration Templates
  *
- * This file contains code templates for integrating continuous eye tracking
- * into your Qualtrics surveys using WebEyeTrack. Copy and paste the appropriate template into
- * each question's HTML/JavaScript as needed.
+ * Copy and paste the appropriate template into each question's JavaScript.
  *
- * Template Selection Guide:
- * - Q1: Use "Question 1: Calibration + Tracker Initialization" template (REQUIRED - first question only)
- * - Q2-Q9, Q11-Q19, etc.: Use "Questions 2+: Standard Tracking" template
- * - Q10, Q20, Q30, Q40, etc.: Use "Recalibration Questions" template (every 10th question)
+ * Template Guide:
+ * - Q1: Calibration (REQUIRED - first question only)
+ * - Q2+: Standard Tracking
  */
 
 // ============================================================================
-// HEADER: PERSISTENT IFRAME (REQUIRED - Add this FIRST)
+// HEADER: PERSISTENT IFRAME (REQUIRED)
 // ============================================================================
-/*
- * Add this to Look & Feel > General > Header BEFORE setting up any questions.
- * This creates ONE iframe that persists throughout the entire survey.
- *
- * Instructions:
- * 1. In Qualtrics, go to Look & Feel (top of survey editor)
- * 2. Click "General" tab
- * 3. Scroll down to "Header" section
- * 4. Click "Edit"
- * 5. Paste the code below
- * 6. Click "Save"
- */
+// Add to: Look & Feel > General > Header
 
-// HEADER CODE (Look & Feel > General > Header):
 /*
 <script>
-// Create persistent iframe that lives throughout entire survey
 (function() {
-  // Only create once
   if (document.getElementById('calibration-iframe')) return;
 
   const iframe = document.createElement('iframe');
   iframe.id = 'calibration-iframe';
-  iframe.src = 'https://kiante-fernandez.github.io/webgazer-qualtrics/experiments/calibration.html';
+  // IMPORTANT: Replace with your hosted URL
+  iframe.src = 'https://YOUR-USERNAME.github.io/webgazer-qualtrics/experiments/calibration.html';
   iframe.allow = 'camera; microphone';
   iframe.style.position = 'fixed';
   iframe.style.bottom = '0';
@@ -49,8 +33,6 @@
   iframe.style.pointerEvents = 'none';
   iframe.style.zIndex = '-1';
   document.body.appendChild(iframe);
-
-  console.log('[Header] Persistent iframe created');
 })();
 </script>
 */
@@ -58,68 +40,53 @@
 // ============================================================================
 // QUESTION 1: CALIBRATION
 // ============================================================================
-/*
- * Use this template for the FIRST question in your survey (after setting up header).
- * This makes the persistent iframe visible for calibration, then hides it again.
- *
- * Instructions:
- * 1. Create a new "Text/Graphic" question in Qualtrics
- * 2. Set question text to: "Please complete the eye tracking calibration."
- * 3. Click the gear icon → "Add JavaScript"
- * 4. Paste the JavaScript code below
- * 5. Save the question
- */
+// Create a "Text/Graphic" question with this JavaScript
 
-// JAVASCRIPT CODE FOR QUESTION 1:
 /*
 Qualtrics.SurveyEngine.addOnload(function() {
   const iframe = document.getElementById('calibration-iframe');
-
   if (!iframe) {
-    console.error('[Q1] Persistent iframe not found! Check header setup.');
+    console.error('[Q1] Iframe not found');
     return;
   }
 
-  // Make iframe visible and full-size for calibration
-  iframe.style.width = '100%';
-  iframe.style.height = '800px';
-  iframe.style.position = 'relative';
-  iframe.style.visibility = 'visible';
-  iframe.style.pointerEvents = 'auto';
-  iframe.style.zIndex = '1';
+  Object.assign(iframe.style, {
+    width: '100%',
+    height: '100%',
+    position: 'fixed',
+    top: '0',
+    left: '0',
+    visibility: 'visible',
+    pointerEvents: 'auto',
+    zIndex: '10000'
+  });
 
-  // Listen for calibration-complete message from iframe
   const messageHandler = function(event) {
-    if (event.data.type === 'calibration-complete') {
-      // Remove listener immediately to prevent firing on future pages
-      window.removeEventListener('message', messageHandler);
+    if (!event.data || event.data.type !== 'calibration-complete') return;
 
-      console.log('[Q1] Calibration complete, hiding iframe');
+    window.removeEventListener('message', messageHandler);
 
-      // Save calibration data to embedded data
-      Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_offset', event.data.average_offset);
-      Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_recalibrated', event.data.recalibrated);
-      Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_attempts', event.data.calibration_attempts);
-      Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_validation', JSON.stringify(event.data.validation_data));
-      Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_model_key', event.data.model_key);
+    Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_offset', event.data.average_offset);
+    Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_recalibrated', event.data.recalibrated);
+    Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_attempts', event.data.calibration_attempts);
+    Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_validation', JSON.stringify(event.data.validation_data));
+    Qualtrics.SurveyEngine.setEmbeddedData('eyetracking_model_key', event.data.model_key);
 
-      // Hide iframe (but keep it alive and rendering!)
-      // Use opacity: 0 instead of visibility: hidden to avoid RAF throttling
-      // Keep full size to preserve coordinate scaling
-      iframe.style.width = '100%';
-      iframe.style.height = '100vh';
-      iframe.style.position = 'fixed';
-      iframe.style.top = '0';
-      iframe.style.left = '0';
-      iframe.style.opacity = '0';
-      iframe.style.pointerEvents = 'none';
-      iframe.style.zIndex = '-1';
+    Object.assign(iframe.style, {
+      width: '100%',
+      height: '100vh',
+      position: 'fixed',
+      top: '0',
+      left: '0',
+      opacity: '0.01',
+      pointerEvents: 'none',
+      zIndex: '-1',
+      visibility: 'visible'
+    });
 
-      // Advance to next question after brief delay
-      setTimeout(function() {
-        document.getElementById('NextButton').click();
-      }, 1000);
-    }
+    setTimeout(function() {
+      document.getElementById('NextButton').click();
+    }, 1000);
   };
 
   window.addEventListener('message', messageHandler);
@@ -127,20 +94,10 @@ Qualtrics.SurveyEngine.addOnload(function() {
 */
 
 // ============================================================================
-// QUESTIONS 2+: STANDARD TRACKING QUESTIONS
+// QUESTIONS 2+: STANDARD TRACKING
 // ============================================================================
-/*
- * Use this template for regular survey questions with eye tracking (Q2, Q3, Q4, etc.)
- * Skip questions Q10, Q20, Q30, etc. - use the recalibration template for those.
- *
- * Instructions:
- * 1. Create your survey question normally in Qualtrics
- * 2. Click "Add JavaScript" in the question
- * 3. Paste the JavaScript code below
- * 4. Change 'Q2' to match your question number (e.g., 'Q3', 'Q4', etc.)
- */
+// Change 'Q2' to match your question number
 
-// JAVASCRIPT CODE FOR STANDARD TRACKING QUESTIONS:
 /*
 (function (questionId) {
   let gazeData = [];
@@ -151,7 +108,7 @@ Qualtrics.SurveyEngine.addOnload(function() {
   Qualtrics.SurveyEngine.addOnload(function () {
     const iframe = document.getElementById('calibration-iframe');
     if (!iframe) {
-      console.error('[' + questionId + '] Persistent iframe not found! Make sure Header code is installed.');
+      console.error('[' + questionId + '] Iframe not found');
       return;
     }
 
@@ -160,8 +117,7 @@ Qualtrics.SurveyEngine.addOnload(function() {
 
     iframe.contentWindow.postMessage({
       type: 'start-tracking',
-      questionId: questionId,
-      questionStartTime: trackingStartTime
+      questionId: questionId
     }, '*');
 
     viewportInterval = setInterval(function () {
@@ -175,361 +131,73 @@ Qualtrics.SurveyEngine.addOnload(function() {
     }, 100);
 
     gazeListener = function (event) {
-      if (event.data.type === 'gaze-data') {
-        // Ensure valid data before pushing
-        if (typeof event.data.x === 'number' && typeof event.data.y === 'number') {
-          gazeData.push({
-            t: Math.round(event.data.timestamp - trackingStartTime),
-            x: Math.round(event.data.x),
-            y: Math.round(event.data.y)
-          });
-        }
-      } else if (event.data.type === 'gaze-data-batch') {
-        // Handle batch data (note: this usually arrives AFTER page submit, so it might be too late for saving)
-        event.data.samples.forEach(s => {
-          // FIX: Use s.timestamp instead of s.perf_t
-          const timestamp = s.timestamp !== undefined ? s.timestamp : s.perf_t;
+      if (!event.data || !event.data.type) return;
 
-          gazeData.push({
-            t: Math.round(timestamp - trackingStartTime),
-            x: Math.round(s.x),
-            y: Math.round(s.y)
-          });
-        });
+      if (event.data.type === 'gaze-data') {
+        if (typeof event.data.x === 'number' && typeof event.data.y === 'number') {
+          gazeData.push([
+            Math.round(event.data.timestamp - trackingStartTime),
+            Math.round(event.data.x),
+            Math.round(event.data.y)
+          ]);
+        }
       }
     };
     window.addEventListener('message', gazeListener);
   });
 
   Qualtrics.SurveyEngine.addOnPageSubmit(function () {
-    const trackingIframe = document.getElementById('calibration-iframe');
-    if (trackingIframe) {
-      trackingIframe.contentWindow.postMessage({ type: 'pause-tracking' }, '*');
-    }
-
-    if (viewportInterval) {
-      clearInterval(viewportInterval);
-    }
-
-    // Delay listener removal slightly
-    setTimeout(() => {
-      if (gazeListener) {
-        window.removeEventListener('message', gazeListener);
-      }
-    }, 1000);
-
-    // Save as Array of Arrays to save space (Method 3)
-    // Format: [[t,x,y], [t,x,y], ...]
-    // This reduces size by ~50% compared to standard JSON while remaining safe.
-    if (gazeData.length > 0) {
-      console.log('[Q2] First sample:', gazeData[0]);
-    }
-
-    const arrayData = gazeData.map(p => [
-      p.t !== undefined ? Math.round(p.t) : 0,
-      p.x !== undefined ? Math.round(p.x) : 0,
-      p.y !== undefined ? Math.round(p.y) : 0
-    ]);
-
-    const dataToSave = JSON.stringify(arrayData);
-    Qualtrics.SurveyEngine.setEmbeddedData('gaze_' + questionId, dataToSave);
-  });
-})('Q2'); // Ensure this matches your Question ID
-*/
-
-// ============================================================================
-// RECALIBRATION QUESTIONS (Q10, Q20, Q30, etc.)
-// ============================================================================
-/*
- * Use this template for every 10th question (Q10, Q20, Q30, Q40, etc.)
- * Offers optional recalibration while still collecting gaze data.
- *
- * Instructions:
- * 1. Create a new "Text/Graphic" question at Q10 position
- * 2. Click HTML view and paste the HTML code
- * 3. Click "Add JavaScript" and paste the JavaScript code
- * 4. Update question numbers in both HTML and JavaScript
- */
-
-// HTML CODE FOR RECALIBRATION QUESTIONS:
-/*
-<div id="recalibration-container">
-  <!-- Recalibration prompt -->
-  <div id="recalibration-prompt" style="text-align: center; padding: 50px;">
-    <h2>Optional: Recalibrate Eye Tracking</h2>
-    <p>We've reached the midpoint of the survey. Would you like to recalibrate your eye tracking for better accuracy?</p>
-    <button onclick="showRecalibration()" style="padding: 15px 30px; font-size: 16px; margin: 10px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer;">
-      Recalibrate
-    </button>
-    <button onclick="skipRecalibration()" style="padding: 15px 30px; font-size: 16px; margin: 10px; background: #95a5a6; color: white; border: none; border-radius: 4px; cursor: pointer;">
-      Skip
-    </button>
-  </div>
-
-</div>
-
-<script>
-  // Define handler globally so we can remove it later
-  var calibrationMessageHandler = function(event) {
-    if (event.data.type === 'calibration-complete') {
-      // Prevent double-firing
-      if (window.recalibrationHasAdvanced) return;
-      window.recalibrationHasAdvanced = true;
-
-      // Remove listener immediately to prevent firing on next pages
-      window.removeEventListener('message', calibrationMessageHandler);
-
-      const calibrationIframe = document.getElementById('calibration-iframe');
-      if (calibrationIframe) {
-        // Restore hidden state
-        Object.assign(calibrationIframe.style, {
-          width: '100%',
-          height: '100vh',
-          opacity: '0.01',
-          zIndex: '-1',
-          pointerEvents: 'none',
-          background: 'transparent'
-        });
-
-        // Resume tracking
-        calibrationIframe.contentWindow.postMessage({ type: 'resume-tracking' }, '*');
-      }
-
-      Qualtrics.SurveyEngine.setEmbeddedData('recalibrated_at_Q10', true); // UPDATE QUESTION NUMBER
-
-      // Auto-advance
-      setTimeout(function() {
-        var nextBtn = document.querySelector('#NextButton');
-        if (nextBtn) nextBtn.click();
-      }, 1500);
-    }
-  };
-
-  function showRecalibration() {
-    // Reset flag when starting recalibration
-    window.recalibrationHasAdvanced = false;
-
-    document.getElementById('recalibration-prompt').style.display = 'none';
-    document.querySelector('#NextButton').style.display = 'none';
-
-    // Find the persistent calibration iframe
-    const calibrationIframe = document.getElementById('calibration-iframe');
-    if (calibrationIframe) {
-      // Show the iframe for recalibration (overlay mode)
-      Object.assign(calibrationIframe.style, {
-        position: 'fixed',
-        top: '0',
-        left: '0',
-        width: '100%',
-        height: '100%',
-        visibility: 'visible',
-        pointerEvents: 'auto',
-        zIndex: '9999',
-        background: 'white',
-        opacity: '1'
-      });
-
-      // Send recalibrate command to iframe
-      calibrationIframe.contentWindow.postMessage({ type: 'recalibrate' }, '*');
-    }
-  }
-
-  function skipRecalibration() {
-    // Just advance to next question
-    document.querySelector('#NextButton').click();
-  }
-
-  // Add listener
-  window.addEventListener('message', calibrationMessageHandler);
-
-  // CLEANUP: Remove listener when page unloads
-  Qualtrics.SurveyEngine.addOnUnload(function() {
-    window.removeEventListener('message', calibrationMessageHandler);
-  });
-</script>
-
-<style>
-  #NextButton { display: inline-block !important; }
-</style>
-*/
-
-// JAVASCRIPT CODE FOR RECALIBRATION QUESTIONS:
-/*
-(function(questionId) {  // ← Pass your Q# here, e.g., 'Q20'
-  let gazeData = [];
-  let gazeListener = null;
-  let viewportInterval = null;
-  let trackingStartTime = 0;
-
-  Qualtrics.SurveyEngine.addOnload(function() {
     const iframe = document.getElementById('calibration-iframe');
-    if (!iframe) {
-      console.error('[' + questionId + '] Persistent iframe not found!');
-      return;
+    if (iframe) {
+      iframe.contentWindow.postMessage({ type: 'pause-tracking' }, '*');
     }
 
-    gazeData = [];
-    trackingStartTime = performance.now();
+    if (viewportInterval) clearInterval(viewportInterval);
+    if (gazeListener) window.removeEventListener('message', gazeListener);
 
-    // Iframe is already in tracking mode, so start tracking immediately
-    // (tracks during prompt and recalibration)
-    console.log('[' + questionId + '] ▶️ Sending start-tracking command');
-    iframe.contentWindow.postMessage({
-      type: 'start-tracking',
-      questionId: questionId,
-      questionStartTime: trackingStartTime
-    }, '*');
-
-    viewportInterval = setInterval(function() {
-      if (iframe.contentWindow) {
-        iframe.contentWindow.postMessage({
-          type: 'viewport-update',
-          scrollX: window.scrollX,
-          scrollY: window.scrollY
-        }, '*');
-      }
-    }, 100);
-
-    gazeListener = function(event) {
-      if (event.data.type === 'gaze-data') {
-        if (gazeData.length === 0) {
-          console.log('[' + questionId + '] ✅ First gaze data received:', event.data);
-        }
-
-        gazeData.push({
-          t: Math.round(event.data.timestamp - trackingStartTime),
-          x: Math.round(event.data.x),
-          y: Math.round(event.data.y)
-        });
-      }
-    };
-    window.addEventListener('message', gazeListener);
+    Qualtrics.SurveyEngine.setEmbeddedData('gaze_' + questionId, JSON.stringify(gazeData));
   });
-
-  Qualtrics.SurveyEngine.addOnPageSubmit(function() {
-    console.log('[' + questionId + '] 💾 Saving gaze data. Sample count:', gazeData.length);
-
-    const trackingIframe = document.getElementById('calibration-iframe');
-    if (trackingIframe) {
-      trackingIframe.contentWindow.postMessage({ type: 'pause-tracking' }, '*');
-    }
-
-    if (viewportInterval) {
-      clearInterval(viewportInterval);
-    }
-    if (gazeListener) {
-      window.removeEventListener('message', gazeListener);
-    }
-
-    // Save as Array of Arrays to save space (Method 3)
-    if (gazeData.length > 0) {
-      console.log('[' + questionId + '] First sample:', gazeData[0]);
-    }
-
-    const arrayData = gazeData.map(p => [
-      p.t !== undefined ? Math.round(p.t) : 0,
-      p.x !== undefined ? Math.round(p.x) : 0,
-      p.y !== undefined ? Math.round(p.y) : 0
-    ]);
-
-    const dataToSave = JSON.stringify(arrayData);
-    console.log('[' + questionId + '] 💾 Data length:', dataToSave.length, 'bytes');
-    console.log('[' + questionId + '] 💾 First 200 chars:', dataToSave.substring(0, 200));
-    Qualtrics.SurveyEngine.setEmbeddedData('gaze_' + questionId, dataToSave);
-  });
-})('Q10');  // ← Change ONLY this to your questionId, e.g., ('Q20')
+})('Q2');
 */
 
+
+
 // ============================================================================
-// EMBEDDED DATA SETUP
+// EMBEDDED DATA FIELDS (Survey Flow)
 // ============================================================================
 /*
- * Before running your survey, set up these embedded data fields in Survey Flow:
+ * Add these fields to Survey Flow > Embedded Data (at the TOP):
  *
- * 1. Go to Survey Flow in Qualtrics
- * 2. Click "Add a New Element Here" at the TOP
- * 3. Select "Embedded Data"
- * 4. Add these fields (leave values blank):
- *
- * Calibration Data (from Q1):
+ * Calibration:
  * - eyetracking_offset
  * - eyetracking_recalibrated
  * - eyetracking_attempts
  * - eyetracking_validation
  * - eyetracking_model_key
  *
- * Gaze Data (one per tracked question):
+ * Gaze Data (one per question):
  * - gaze_Q2
  * - gaze_Q3
  * - gaze_Q4
- * ... (add one for each question you're tracking)
- * - gaze_Q10 (if using recalibration)
- * ...
- *
- * Recalibration Markers (optional):
- * - recalibrated_at_Q10
- * - recalibrated_at_Q20
- * ... (add one for each recalibration question)
- *
- * 5. Move this Embedded Data element to the VERY TOP of your Survey Flow
- * 6. Click "Save Flow"
+ * - ...
  */
 
 // ============================================================================
 // DATA FORMAT
 // ============================================================================
 /*
- * Gaze data is stored in Array of Arrays format (Method 3):
- * Format: "[[t1,x1,y1], [t2,x2,y2], ...]"
+ * Gaze data: [[t,x,y], [t,x,y], ...]
  *
- * Where:
- * - t = timestamp in milliseconds (relative to question start)
- * - x = gaze x-coordinate in pixels (relative to viewport)
- * - y = gaze y-coordinate in pixels (relative to viewport)
+ * - t = timestamp (ms, relative to question start)
+ * - x = gaze x-coordinate (pixels)
+ * - y = gaze y-coordinate (pixels)
  *
- * Example:
- * "[[0,512,384],[67,515,386],[134,518,390],...]"
- *
- * To parse in R:
+ * Parse in R:
  *   library(jsonlite)
- *   gaze_list <- fromJSON(gaze_data)
- *   gaze_df <- as.data.frame(gaze_list)
- *   colnames(gaze_df) <- c("t", "x", "y")
+ *   df <- as.data.frame(fromJSON(gaze_data))
+ *   colnames(df) <- c("t", "x", "y")
  *
- * To parse in Python:
- *   import json
- *   import pandas as pd
- *   data = json.loads(gaze_data)
- *   df = pd.DataFrame(data, columns=['t', 'x', 'y'])
- */
-
-// ============================================================================
-// TROUBLESHOOTING
-// ============================================================================
-/*
- * Common Issues:
- *
- * 1. "Tracking iframe not found"
- *    - Make sure Q1 (calibration question) has been completed
- *    - Check that the tracking iframe is present in the page HTML
- *
- * 2. "No gaze data collected"
- *    - Verify participant granted camera permission on Q1
- *    - Check browser console for errors
- *    - Ensure embedded data fields are set up in Survey Flow
- *
- * 3. "Data shows NaN or null values"
- *    - Check that WebGazer is properly initialized
- *    - Verify calibration completed successfully
- *    - Look for JavaScript errors in console
- *
- * 4. "Coordinates seem wrong"
- *    - Ensure viewport updates are running (check console)
- *    - Verify no errors in coordinate transformation
- *    - Test with scrolling content
- *
- * 5. "Too much data / hitting size limits"
- *    - Reduce sampling rate (change from 15 Hz to lower)
- *    - Track fewer questions
- *    - Use external server for data storage instead of embedded data
+ * Parse in Python:
+ *   import json, pandas as pd
+ *   df = pd.DataFrame(json.loads(gaze_data), columns=['t', 'x', 'y'])
  */
