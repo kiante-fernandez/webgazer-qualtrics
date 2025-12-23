@@ -34,11 +34,8 @@
     var final_validation_data = null;
     var adapter = new GazeAdapter();
 
-    // Initialize jsPsych
     var jsPsych = initJsPsych({
       on_finish: function (data) {
-        // Note: calibration-complete message is sent from the timeline step, not here
-        // This callback is only reached in standalone mode when timeline completes
         var validation_data = final_validation_data;
 
         console.log('Calibration complete!');
@@ -59,8 +56,8 @@
     });
 
     var timeline = [];
+    var is_tracking_available = false;
 
-    // Welcome + Camera Permission Screen
     timeline.push({
       type: jsPsychHtmlButtonResponse,
       stimulus: `
@@ -78,41 +75,39 @@
       `,
       choices: ['Continue'],
       on_load: async function () {
-        // Disable the button initially
         const continueBtn = document.querySelector('.jspsych-btn');
         if (continueBtn) continueBtn.disabled = true;
 
         try {
           await adapter.init();
+          is_tracking_available = true;
           document.getElementById('camera-status').innerHTML =
             '<span style="color: #2ecc71;">Camera ready</span>';
-          if (continueBtn) continueBtn.disabled = false;
         } catch (e) {
-          document.getElementById('camera-status').innerHTML =
-            '<span style="color: #e74c3c;">Camera initialization failed: ' + e.message + '</span>';
-          // Keep button disabled - user cannot proceed
+          console.error('[Calibration] Camera initialization failed:', e);
+          is_tracking_available = false;
+          document.getElementById('camera-status').innerHTML = '';
         }
+
+        if (continueBtn) continueBtn.disabled = false;
       },
       on_finish: function () {
-        // Request fullscreen when user clicks Continue
         const elem = document.documentElement;
         if (elem.requestFullscreen) {
           elem.requestFullscreen().catch(err => {
             console.warn('[Calibration] Could not enter fullscreen:', err.message);
           });
-        } else if (elem.webkitRequestFullscreen) { // Safari
+        } else if (elem.webkitRequestFullscreen) {
           elem.webkitRequestFullscreen();
-        } else if (elem.msRequestFullscreen) { // IE/Edge
+        } else if (elem.msRequestFullscreen) {
           elem.msRequestFullscreen();
         }
       }
     });
 
-    // Calibration Sequence Function
     function create_calibration_sequence() {
       var sequence = [];
 
-      // Instructions
       sequence.push({
         type: jsPsychHtmlButtonResponse,
         stimulus: `
@@ -134,16 +129,14 @@
         choices: ['Begin Calibration']
       });
 
-      // Run Calibration
       sequence.push({
         type: jsPsychCallFunction,
         async: true,
         func: async function (done) {
           try {
-            // Run calibration (adapter handles UI)
             const result = await adapter.calibrate();
             calibration_attempts++;
-            final_validation_data = result; // Store result
+            final_validation_data = result;
             done();
           } catch (e) {
             console.error('Calibration failed:', e);
@@ -152,13 +145,16 @@
         }
       });
 
-      return sequence;
+      return {
+        timeline: sequence,
+        conditional_function: function () {
+          return is_tracking_available;
+        }
+      };
     }
 
-    // Add calibration
-    timeline = timeline.concat(create_calibration_sequence());
+    timeline.push(create_calibration_sequence());
 
-    // Auto-retry logic: If first attempt has poor accuracy, auto-retry once
     var auto_retry = {
       timeline: [
         {
@@ -175,30 +171,24 @@
           `,
           choices: [],
           trial_duration: 2000
-        }
-      ].concat(create_calibration_sequence()),
+        },
+        create_calibration_sequence()
+      ],
       conditional_function: function () {
-        // Only auto-retry on first attempt if accuracy is poor
+        if (!is_tracking_available) return false;
+
         var threshold = 0.08;
         var rmse = final_validation_data ? final_validation_data.rmse : null;
 
-        console.log('[Calibration] Checking auto-retry condition:');
-        console.log('  RMSE:', rmse);
-        console.log('  Attempts:', calibration_attempts);
-
-        // Only retry if: first attempt AND poor accuracy
         if (calibration_attempts === 1 && rmse !== null && rmse > threshold) {
-          console.log('  Decision: AUTO-RETRY (first attempt with poor accuracy)');
           return true;
         }
 
-        console.log('  Decision: PROCEED (good accuracy or already retried)');
         return false;
       }
     };
     timeline.push(auto_retry);
 
-    // Completion
     timeline.push({
       type: jsPsychHtmlButtonResponse,
       stimulus: '<h3>Calibration Complete!</h3><p>Proceeding...</p>',
@@ -206,56 +196,45 @@
       trial_duration: 1000
     });
 
-    // Start Tracking and Send Calibration Complete
     timeline.push({
       type: jsPsychCallFunction,
       async: true,
       func: async function (done) {
-        console.log('[Calibration] Starting tracker...');
-        try {
-          await adapter.start();
-          console.log('[Calibration] Adapter started successfully');
-          initTrackingMode();
-
-          // Send calibration-complete message to parent immediately
-          // (Don't wait for on_finish since we'll enter infinite mode)
-          if (window.parent !== window) {
-            var model_key = 'webeyetrack_model_' + Date.now();
-            window.parent.postMessage({
-              type: 'calibration-complete',
-              average_offset: final_validation_data ? final_validation_data.rmse : null,
-              recalibrated: calibration_attempts > 1,
-              calibration_attempts: calibration_attempts,
-              validation_data: final_validation_data,
-              model_key: model_key
-            }, '*');
-            console.log('[Calibration] Sent calibration-complete to parent, hiding iframe');
+        if (is_tracking_available) {
+          try {
+            await adapter.start();
+            initTrackingMode();
+          } catch (e) {
+            console.error('[Calibration] Error starting adapter:', e);
           }
-
-          // Complete this trial to proceed to infinite tracking mode
-          done();
-        } catch (e) {
-          console.error('[Calibration] Error starting adapter:', e);
-          alert('Error starting eye tracking: ' + e.message);
-          done();
         }
+
+        if (window.parent !== window) {
+          var model_key = 'webeyetrack_model_' + Date.now();
+          window.parent.postMessage({
+            type: 'calibration-complete',
+            average_offset: final_validation_data ? final_validation_data.rmse : null,
+            recalibrated: calibration_attempts > 1,
+            calibration_attempts: calibration_attempts,
+            validation_data: final_validation_data,
+            model_key: model_key,
+            tracking_available: is_tracking_available
+          }, '*');
+        }
+
+        done();
       }
     });
 
-    // Conditional final trial based on context
-    // In Qualtrics iframe: Keep jsPsych alive indefinitely for tracking
-    // In standalone mode: Show completion message with close button
     const isInIframe = window.parent !== window;
 
     if (isInIframe) {
-      // Qualtrics iframe mode: infinite trial (tracking stays active)
       timeline.push({
         type: jsPsychHtmlButtonResponse,
         stimulus: '<div style="text-align: center; color: #999;">Eye tracking active</div>',
         choices: [],
         trial_duration: null,
         on_load: function () {
-          // Hide UI after calibration complete
           setTimeout(() => {
             const el = document.querySelector('#jspsych-html-button-response-stimulus');
             if (el) el.style.display = 'none';
@@ -263,7 +242,6 @@
         }
       });
     } else {
-      // Standalone mode: show completion with close button
       timeline.push({
         type: jsPsychHtmlButtonResponse,
         stimulus: `
@@ -274,28 +252,20 @@
             <p style="color: #666; font-size: 14px; margin-top: 30px;">You can close this window now or click the button below.</p>
           </div>
         `,
-        choices: ['Close Window'],
-        on_finish: function () {
-          console.log('[Calibration] Standalone test complete - closing window');
-          // In standalone mode, user can close the window
-          // The tracker will continue running until page is closed
-        }
+        choices: ['Close Window']
       });
     }
 
     jsPsych.run(timeline);
 
-    // Tracking Mode Logic
     var isTracking = false;
     var gazeBuffer = [];
     var viewportOffset = { scrollX: 0, scrollY: 0 };
     var sampleCount = 0;
 
     function initTrackingMode() {
-      console.log('[Calibration] Initializing tracking mode...');
-      isTracking = true; // Enable tracking by default for standalone testing
+      isTracking = true;
 
-      // Create visual feedback dot
       const gazeDot = document.createElement('div');
       gazeDot.id = 'gaze-dot';
       gazeDot.style.position = 'fixed';
@@ -306,32 +276,19 @@
       gazeDot.style.pointerEvents = 'none';
       gazeDot.style.zIndex = '9999';
       gazeDot.style.transform = 'translate(-50%, -50%)';
-      gazeDot.style.display = 'none'; // Hidden initially
+      gazeDot.style.display = 'none';
       document.body.appendChild(gazeDot);
 
       adapter.onSample((sample) => {
         sampleCount++;
-        if (sampleCount % 60 === 0) { // Log every ~1s (at 60Hz) or ~4s (at 15Hz)
-          console.log('[Calibration] Sample #' + sampleCount, sample);
-        }
 
-        // Update visual feedback
         gazeDot.style.display = 'block';
         gazeDot.style.left = sample.x + 'px';
         gazeDot.style.top = sample.y + 'px';
 
-        if (!isTracking) {
-          if (sampleCount % 60 === 0) {
-            console.log('[Calibration] isTracking is FALSE, blocking postMessage (sample #' + sampleCount + ')');
-          }
-          return;
-        }
+        if (!isTracking) return;
 
-        // Stream data to parent window (Qualtrics)
         if (window.parent !== window) {
-          if (sampleCount % 60 === 0) {
-            console.log('[Calibration] isTracking is TRUE, sending gaze-data to parent (sample #' + sampleCount + ')');
-          }
           window.parent.postMessage({
             type: 'gaze-data',
             timestamp: sample.perf_t,
@@ -349,28 +306,20 @@
         });
       });
 
-      // Notify parent
       if (window.parent !== window) {
         window.parent.postMessage({ type: 'tracking-ready' }, '*');
       }
     }
 
-    // Message Listener
     window.addEventListener('message', function (event) {
       var data = event.data;
       switch (data.type) {
         case 'start-tracking':
-          console.log('[Calibration] Received START-TRACKING message');
-          console.log('[Calibration] Before: isTracking =', isTracking);
           isTracking = true;
           gazeBuffer = [];
-          console.log('[Calibration] After: isTracking =', isTracking);
-          console.log('[Calibration] Tracking ACTIVE, buffer cleared');
           break;
         case 'pause-tracking':
-          console.log('[Calibration] Received PAUSE-TRACKING message');
           isTracking = false;
-          console.log('[Calibration] Sending', gazeBuffer.length, 'buffered samples to parent');
           if (window.parent !== window) {
             window.parent.postMessage({
               type: 'gaze-data-batch',
@@ -378,56 +327,9 @@
             }, '*');
           }
           break;
-        case 'resume-tracking':
-          isTracking = true;
-          break;
         case 'viewport-update':
           viewportOffset.scrollX = data.scrollX || 0;
           viewportOffset.scrollY = data.scrollY || 0;
-          break;
-        case 'recalibrate':
-          // Handle recalibration request
-          console.log('[Calibration] Recalibration requested');
-
-          // 1. Pause tracking
-          isTracking = false;
-
-          // 2. Run calibration directly
-          adapter.calibrate().then(result => {
-            console.log('[Calibration] Recalibration complete', result);
-            calibration_attempts++;
-            final_validation_data = result;
-
-            // 3. Notify parent
-            if (window.parent !== window) {
-              var model_key = 'webeyetrack_model_' + Date.now();
-              window.parent.postMessage({
-                type: 'calibration-complete',
-                average_offset: result.rmse,
-                recalibrated: true,
-                calibration_attempts: calibration_attempts,
-                validation_data: result,
-                model_key: model_key
-              }, '*');
-            }
-
-            // 4. Resume tracking
-            isTracking = true;
-          }).catch(e => {
-            console.error('[Calibration] Recalibration failed:', e);
-
-            // Notify parent of failure
-            if (window.parent !== window) {
-              window.parent.postMessage({
-                type: 'calibration-failed',
-                error: e.message || 'Recalibration failed',
-                calibration_attempts: calibration_attempts
-              }, '*');
-            }
-
-            // Resume tracking with previous calibration
-            isTracking = true;
-          });
           break;
       }
     });
