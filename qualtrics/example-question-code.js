@@ -20,8 +20,7 @@
 
   const iframe = document.createElement('iframe');
   iframe.id = 'calibration-iframe';
-  // IMPORTANT: Replace with your hosted URL
-  iframe.src = 'https://YOUR-USERNAME.github.io/webgazer-qualtrics/experiments/calibration.html';
+  iframe.src = 'https://kiante-fernandez.github.io/webgazer-qualtrics/experiments/calibration.html';
   iframe.allow = 'camera; microphone';
   iframe.style.position = 'fixed';
   iframe.style.bottom = '0';

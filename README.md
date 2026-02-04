@@ -4,7 +4,7 @@ Add eye tracking to your Qualtrics surveys with this ready-to-use integration. N
 
 ## What This Does
 
-This integration adds browser-based eye tracking to Qualtrics surveys using **WebEyeTrack**. Participants complete a one-time calibration, then their gaze is tracked throughout your survey questions.
+This integration adds browser-based eye tracking to Qualtrics surveys using **[WebEyeTrack](https://redforestai.github.io/WebEyeTrack/)**. Participants complete a one-time calibration, then their gaze is tracked throughout your survey questions.
 
 ## Quick Start for Qualtrics Users
 

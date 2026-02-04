@@ -36,33 +36,33 @@ Follow these 5 steps to add continuous eye tracking to your Qualtrics survey.
 1. Go to **Survey Flow**
 2. Click **"Add a New Element Here"** at the very top
 3. Select **"Embedded Data"**
-4. Add these field names (copy the list below):
+4. Add these field names:
 
+**Required fields** (always add these 5):
 ```
 eyetracking_offset
 eyetracking_recalibrated
 eyetracking_attempts
 eyetracking_validation
 eyetracking_model_key
+```
+
+**Gaze data fields** (add one for each question you want to track):
+```
 gaze_Q2
 gaze_Q3
 gaze_Q4
-gaze_Q5
-gaze_Q6
-gaze_Q7
-gaze_Q8
-gaze_Q9
-gaze_Q10
-gaze_Q11
-gaze_Q12
 ```
+...and so on for each question.
 
-> **Note**: Add one `gaze_Q#` field for each question you want to track. Add more as needed for your survey length.
+> **Note**: Only add `gaze_Q#` fields for questions where you want eye tracking data. If your survey has 10 questions but you only care about Q2-Q5, you only need `gaze_Q2`, `gaze_Q3`, `gaze_Q4`, and `gaze_Q5`.
 
 5. **Move this element to the TOP** of your Survey Flow
 6. Click **"Save Flow"**
 
-### Step 2: Create Persistent Iframe (Header)
+### Step 2: Add the Eye Tracking Code to Your Survey Header
+
+> **What's an iframe?** An iframe is a small hidden window that runs inside your survey page. It handles all the eye tracking behind the scenes so you don't have to worry about it.
 
 **In Qualtrics:**
 1. Go to **Look & Feel** (top of survey editor)
@@ -80,8 +80,7 @@ gaze_Q12
 
   const iframe = document.createElement('iframe');
   iframe.id = 'calibration-iframe';
-  // IMPORTANT: Replace this URL with your own hosted calibration.html
-  iframe.src = 'https://YOUR-USERNAME.github.io/webgazer-qualtrics/experiments/calibration.html';
+  iframe.src = 'https://kiante-fernandez.github.io/webgazer-qualtrics/experiments/calibration.html';
   iframe.allow = 'camera; microphone';
   iframe.style.position = 'fixed';
   iframe.style.bottom = '0';
@@ -282,10 +281,10 @@ Your continuous eye tracking is now set up. When participants take your survey:
 ## Reference
 
 ### Data Format
- 
-Gaze data is saved as a **JSON Array of Arrays**: `[[0,512,384],[67,515,386],...]`
- 
-Where each inner array contains:
+
+Your gaze data is saved as a list of coordinates: `[[0,512,384],[67,515,386],...]`
+
+Each entry contains three numbers:
 - `[0]` = Timestamp in ms (relative to question start)
 - `[1]` = Gaze X coordinate in pixels
 - `[2]` = Gaze Y coordinate in pixels
@@ -302,30 +301,26 @@ Where each inner array contains:
 
 ### Troubleshooting
 
+**First step for any issue:** Refresh the page and try again from the beginning. Many issues resolve themselves with a fresh start.
+
 **Camera Permission Denied**
-- Use HTTPS (required for webcam access)
-- Participants must allow camera in browser
-- Chrome/Edge work best
+- Make sure participants click "Allow" when the browser asks for camera access
+- Use Chrome or Edge browsers (they work best)
+- The survey must use HTTPS (most Qualtrics surveys do by default)
 
-**Tracking Iframe Not Found**
-- Verify Q1 calibration completed
-- Check `calibration-iframe` exists in document.body (use browser dev tools)
+**Calibration Not Working**
+- Make sure you completed Step 2 (the header code)
+- Try in a different browser
+- Check that pop-up blockers aren't interfering
 
-**No Gaze Data Collected**
-- Verify camera permission granted on Q1
-- Check browser console for errors
-- Ensure embedded data fields set up in Survey Flow
-- Verify `questionId` matches in both `addOnload` and `addOnPageSubmit`
-- Look for `[Calibration] Sample #` messages in console to verify tracking is active
-
-**Coordinates Wrong or NaN/Null**
-- Verify calibration completed successfully
-- Check for `[Calibration] Tracking mode active` in console
+**No Gaze Data in Your Results**
+- Make sure you completed Step 1 (embedded data fields in Survey Flow)
+- Verify the question number in your code matches your actual question (e.g., `'Q2'` for Question 2)
+- Confirm participants completed calibration successfully
 
 **Data Size Limits**
-- Reduce sampling rate (edit calibration.html)
-- Track fewer questions
-- Use external server for storage
+- For very long surveys, consider tracking only your most important questions
+- Each question generates about 1-2 KB of data per 5 seconds
 
 ---
 

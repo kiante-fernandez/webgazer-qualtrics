@@ -25,7 +25,6 @@ This guide covers:
 This file contains ready-to-use templates for:
 - Question 1: Calibration (with improved camera permission flow)
 - Questions 2+: Standard tracking
-- Questions 10, 20, etc.: Optional recalibration
 
 ## What This Integration Does
 
