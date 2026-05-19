@@ -63,4 +63,8 @@ npm run dev  # Test locally
 
 ## License
 
-MIT License - See LICENSE file for details.
+TDG-Attribution-NonCommercial-ShareAlike (UCLA Academic Software License).
+Free for academic and non-profit research use with attribution; redistribution
+must keep this license. **Commercial use is not permitted** — contact
+software@tdg.ucla.edu for commercial licensing. See [LICENSE](LICENSE) for full
+terms.
